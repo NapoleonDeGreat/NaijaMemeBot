@@ -25,8 +25,10 @@ app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date() }));
 async function runMigration() {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
+    const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL.includes('railway') ? { rejectUnauthorized: false } : false,
+});
 
   const schema = `
     CREATE TABLE IF NOT EXISTS users (

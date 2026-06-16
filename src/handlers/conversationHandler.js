@@ -60,8 +60,8 @@ async function sendMenu(phone) {
   await wa.sendList(
     phone,
     '🎨 NaijaMeme Bot',
-    'Welcome! Which type of message do you want to create?\n\nPick a category below 👇',
-    'Choose Category',
+  'Welcome! What type of meme/flier do you want to create?\n\nPick a category below 👇',
+ 'Choose Category',
     [
       {
         title: 'Personal Messages',

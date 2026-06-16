@@ -16,13 +16,20 @@ async function generateMemeImage({ imagePrompt, recipientName, category }) {
   const fullPrompt = `${imagePrompt}. Add a small subtle "${watermarkText}" watermark text in the bottom right corner. Professional Nigerian graphic design quality. 1080x1080 square format.`;
 
   // Generate with GPT Image 1.5 (DALL-E 3 was shut down by OpenAI on May 12, 2026)
-  const response = await client.images.generate({
-    model: 'gpt-image-1.5',
-    prompt: fullPrompt,
-    n: 1,
-    size: '1024x1024',
-    quality: 'high',
-  });
+  let response;
+  try {
+    response = await client.images.generate({
+      model: 'gpt-image-1.5',
+      prompt: fullPrompt,
+      n: 1,
+      size: '1024x1024',
+      quality: 'high',
+    });
+  } catch (err) {
+    // TEMP DEBUG — surface the real OpenAI error detail
+    console.error('OpenAI image generation FULL error:', JSON.stringify(err.error || err.response?.data || err.message));
+    throw err;
+  }
 
   // GPT Image models return base64 data by default (no "url" field like DALL-E had)
   const base64Data = response.data[0].b64_json;
@@ -43,3 +50,4 @@ async function generateMemeImage({ imagePrompt, recipientName, category }) {
 }
 
 module.exports = { generateMemeImage };
+

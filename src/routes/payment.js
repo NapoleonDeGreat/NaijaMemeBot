@@ -16,6 +16,10 @@ router.post('/webhook', express.json(), async (req, res) => {
   try {
     const signature = req.headers['verif-hash'];
 
+    // TEMP DEBUG — remove once signature issue is fixed
+    console.log('DEBUG received signature:', JSON.stringify(signature), 'length:', signature ? signature.length : 0);
+    console.log('DEBUG expected hash:', JSON.stringify(FLW_SECRET_HASH), 'length:', FLW_SECRET_HASH ? FLW_SECRET_HASH.length : 0);
+
     if (!signature || signature !== FLW_SECRET_HASH) {
       console.warn('⚠️ Invalid Flutterwave signature - ignoring webhook');
       return;

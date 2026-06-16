@@ -279,8 +279,10 @@ async function generateAndSend(phone, session) {
         { id: 'SHOUTOUT_NO', title: '✅ No, Am Good' },
       ]
     );
-  } catch (err) {
+  catch (err) {
     console.error('Generation error:', err.message);
+    // TEMP DEBUG — print the full error so we can see OpenAI's actual reason
+    console.error('Generation error FULL DETAIL:', JSON.stringify(err.error || err.response?.data || err, Object.getOwnPropertyNames(err)));
     await sessionSvc.updateSession(session.id, { state: 'DONE' });
     await wa.sendText(phone, '❌ Something went wrong generating your meme. Type *menu* to try again. Your payment is saved.');
   }

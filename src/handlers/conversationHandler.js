@@ -242,8 +242,8 @@ async function generateAndSend(phone, session) {
       gender: freshSession.notes, // gender stored in notes field temporarily
     });
 
-    // Generate image with DALL-E 3
-    const { dalleUrl, publicUrl } = await imageSvc.generateMemeImage({
+    // Generate image with GPT Image 1.5
+    const { publicUrl } = await imageSvc.generateMemeImage({
       imagePrompt,
       recipientName: freshSession.recipient_name,
       category: freshSession.category,
@@ -256,8 +256,8 @@ async function generateAndSend(phone, session) {
       [session.id, phone, caption, freshSession.recipient_name, publicUrl]
     );
 
-    // Send the meme — use DALL-E URL directly (faster)
-    await wa.sendImage(phone, dalleUrl, caption);
+    // Send the meme using our own hosted URL (GPT Image returns base64, no external URL)
+    await wa.sendImage(phone, publicUrl, caption);
 
     // Update session
     await sessionSvc.updateSession(session.id, {
@@ -279,7 +279,7 @@ async function generateAndSend(phone, session) {
         { id: 'SHOUTOUT_NO', title: '✅ No, Am Good' },
       ]
     );
-  catch (err) {
+  } catch (err) {
     console.error('Generation error:', err.message);
     // TEMP DEBUG — print the full error so we can see OpenAI's actual reason
     console.error('Generation error FULL DETAIL:', JSON.stringify(err.error || err.response?.data || err, Object.getOwnPropertyNames(err)));

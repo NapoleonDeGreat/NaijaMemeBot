@@ -23,7 +23,6 @@ async function generateMemeImage({ imagePrompt, recipientName, category }) {
     n: 1,
     size: '1024x1024',
     quality: 'hd',
-    style: 'vivid',
   });
 
   const imageUrl = response.data[0].url;

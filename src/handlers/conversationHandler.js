@@ -1,8 +1,7 @@
 const wa = require('../services/whatsappService');
 const sessionSvc = require('../services/sessionService');
 const paymentSvc = require('../services/paymentService');
-const gptSvc = require('../services/gptService');
-const templateSvc = require('../services/templateService');
+const { generateCaptionAndImagePrompt } = require('../services/gptService');
 const imageSvc = require('../services/imageService');
 const voiceSvc = require('../services/voiceService');
 const pool = require('../db/pool');
@@ -12,6 +11,25 @@ const CATEGORIES = {
   CAT_apology: 'apology',
   CAT_ask_money: 'ask_money',
   CAT_customer_appreciation: 'customer_appreciation',
+  CAT_congratulations: 'congratulations',
+  CAT_church: 'church',
+  CAT_business_advert: 'business_advert',
+  CAT_political: 'political',
+  CAT_relationship: 'relationship',
+  CAT_academic: 'academic',
+};
+
+const CATEGORY_LABELS = {
+  thank_you: '🙏 Thank You',
+  apology: '😔 Apology',
+  ask_money: '💸 Ask for Money',
+  customer_appreciation: '⭐ Customer Appreciation',
+  congratulations: '🎉 Congratulations',
+  church: '⛪ Church/Ministry',
+  business_advert: '📢 Business Advert',
+  political: '🗳️ Political Campaign',
+  relationship: '💔 Shoot Your Shot',
+  academic: '🎓 Academic Achievement',
 };
 
 async function handleIncomingMessage(phone, message, messageId) {
@@ -29,10 +47,11 @@ async function handleIncomingMessage(phone, message, messageId) {
   switch (session.state) {
     case 'MENU': return handleMenuSelection(phone, session, message);
     case 'CATEGORY_SELECTED': return handleRecipientName(phone, session, message);
-    case 'RECIPIENT_NAME': return handleNotes(phone, session, message);
-    case 'NOTES': return handleNotesInput(phone, session, message);
-    case 'AWAITING_VOICE': return handleVoiceOrProceed(phone, session, message);
+    case 'RECIPIENT_NAME': return handleGender(phone, session, message);
+    case 'GENDER': return handleVoiceOrText(phone, session, message);
+    case 'AWAITING_VOICE': return handleVoiceInput(phone, session, message);
     case 'AWAITING_PAYMENT': return handlePaymentCheck(phone, session, message);
+    case 'AWAITING_SHOUTOUT': return handleShoutoutDecision(phone, session, message);
     default: return sendMenu(phone);
   }
 }
@@ -43,15 +62,28 @@ async function sendMenu(phone) {
     '🎨 NaijaMeme Bot',
     'Welcome! Which type of message do you want to create?\n\nPick a category below 👇',
     'Choose Category',
-    [{
-      title: 'Message Types',
-      rows: [
-        { id: 'CAT_thank_you', title: '🙏 Thank You Message' },
-        { id: 'CAT_apology', title: '😔 Apology Message' },
-        { id: 'CAT_ask_money', title: '💸 Ask for Money' },
-        { id: 'CAT_customer_appreciation', title: '⭐ Customer Appreciation' },
-      ],
-    }]
+    [
+      {
+        title: 'Personal Messages',
+        rows: [
+          { id: 'CAT_thank_you', title: '🙏 Thank You Message' },
+          { id: 'CAT_apology', title: '😔 Apology Message' },
+          { id: 'CAT_ask_money', title: '💸 Ask for Money' },
+          { id: 'CAT_relationship', title: '💔 Shoot Your Shot' },
+          { id: 'CAT_congratulations', title: '🎉 Congratulations' },
+        ],
+      },
+      {
+        title: 'Business & Special',
+        rows: [
+          { id: 'CAT_customer_appreciation', title: '⭐ Customer Appreciation' },
+          { id: 'CAT_business_advert', title: '📢 Business Advert' },
+          { id: 'CAT_church', title: '⛪ Church/Ministry' },
+          { id: 'CAT_political', title: '🗳️ Political Campaign' },
+          { id: 'CAT_academic', title: '🎓 Academic Achievement' },
+        ],
+      },
+    ]
   );
 }
 
@@ -64,7 +96,10 @@ async function handleMenuSelection(phone, session, message) {
   }
 
   await sessionSvc.updateSession(session.id, { state: 'CATEGORY_SELECTED', category });
-  await wa.sendText(phone, `Great choice! ✅\n\nWhat is the *name* of the person you are sending this to?\n\n_(e.g. Mama, Oga Tony, Chioma)_`);
+  await wa.sendText(
+    phone,
+    `${CATEGORY_LABELS[category]} selected! ✅\n\nWhat is the *name* of the person you are sending this to?\n\n_(e.g. Mama, Oga Tony, Chioma, Pastor Mike)_`
+  );
 }
 
 async function handleRecipientName(phone, session, message) {
@@ -76,67 +111,79 @@ async function handleRecipientName(phone, session, message) {
   await sessionSvc.updateSession(session.id, { state: 'RECIPIENT_NAME', recipient_name: name });
   await wa.sendButtons(
     phone,
-    `Perfect! 🎯 Sending to *${name}*.\n\nDo you want to add personal notes to make it more unique?`,
+    `Perfect! Sending to *${name}* 🎯\n\nWhat gender is ${name}?`,
     [
-      { id: 'SKIP_NOTES', title: '⏩ Skip' },
-      { id: 'ADD_NOTES', title: '✏️ Add Notes' },
+      { id: 'GENDER_MALE', title: '👨 Male' },
+      { id: 'GENDER_FEMALE', title: '👩 Female' },
     ]
   );
 }
 
-async function handleNotes(phone, session, message) {
+async function handleGender(phone, session, message) {
   const btnId = message.interactive?.button_reply?.id;
+  const gender = btnId === 'GENDER_MALE' ? 'male' : btnId === 'GENDER_FEMALE' ? 'female' : null;
 
-  if (btnId === 'ADD_NOTES') {
-    await sessionSvc.updateSession(session.id, { state: 'NOTES' });
-    return wa.sendText(phone, '✏️ Type your personal note now:\n\n_(e.g. you paid my school fees, you always support me)_');
+  if (!gender) {
+    return wa.sendButtons(
+      phone,
+      'Please select the gender:',
+      [
+        { id: 'GENDER_MALE', title: '👨 Male' },
+        { id: 'GENDER_FEMALE', title: '👩 Female' },
+      ]
+    );
   }
 
-  await sessionSvc.updateSession(session.id, { state: 'NOTES', notes: null });
-  return askForVoiceNote(phone, session.id);
-}
-
-async function handleNotesInput(phone, session, message) {
-  const notes = message.text?.body?.trim();
-  await sessionSvc.updateSession(session.id, { notes });
-  return askForVoiceNote(phone, session.id);
-}
-
-async function askForVoiceNote(phone, sessionId) {
-  await sessionSvc.updateSession(sessionId, { state: 'AWAITING_VOICE' });
+  await sessionSvc.updateSession(session.id, { state: 'GENDER', notes: gender });
   await wa.sendButtons(
     phone,
-    '🎤 Optional: Send a voice note for a more personal touch!\n\nOr skip to proceed to payment.',
+    `🎤 Now send a voice note and watch your meme unfold like magic! ✨\n\nTell us what you want to say — we go turn am to something beautiful.\n\nOr type your message if you prefer.`,
     [
-      { id: 'SKIP_VOICE', title: '⏩ Skip' },
-      { id: 'VOICE_READY', title: '🎤 Send Voice' },
+      { id: 'TYPE_MESSAGE', title: '⌨️ Type Instead' },
     ]
   );
+  await sessionSvc.updateSession(session.id, { state: 'AWAITING_VOICE' });
 }
 
-async function handleVoiceOrProceed(phone, session, message) {
+async function handleVoiceOrText(phone, session, message) {
+  return handleVoiceInput(phone, session, message);
+}
+
+async function handleVoiceInput(phone, session, message) {
   const btnId = message.interactive?.button_reply?.id;
 
-  if (btnId === 'SKIP_VOICE') return triggerPayment(phone, session);
-  if (btnId === 'VOICE_READY') {
-    return wa.sendText(phone, '🎤 Go ahead, record and send your voice note now!');
+  if (btnId === 'TYPE_MESSAGE') {
+    await sessionSvc.updateSession(session.id, { state: 'AWAITING_VOICE' });
+    return wa.sendText(phone, '⌨️ Type your message now — tell us what you want to say to them:');
   }
 
+  // Handle voice note
   if (message.type === 'audio') {
-    await wa.sendText(phone, '⏳ Transcribing your voice note...');
+    await wa.sendText(phone, '⏳ Got your voice note! Transcribing...');
     try {
       const { buffer, mimeType } = await wa.downloadMedia(message.audio.id);
       const transcript = await voiceSvc.transcribeVoiceNote(buffer, mimeType);
       await sessionSvc.updateSession(session.id, { voice_transcript: transcript });
-      await wa.sendText(phone, `✅ Got it!\n\n_"${transcript}"_`);
+      await wa.sendText(phone, `✅ Perfect! I heard:\n\n_"${transcript}"_\n\nGenerating your meme now... 🎨`);
+      return triggerPayment(phone, session);
     } catch (err) {
       console.error('Voice error:', err.message);
-      await wa.sendText(phone, '⚠️ Could not process voice note, proceeding without it.');
+      await wa.sendText(phone, '⚠️ Could not process voice note. Please type your message instead:');
+      return;
     }
-    return triggerPayment(phone, session);
   }
 
-  return triggerPayment(phone, session);
+  // Handle typed message
+  if (message.text?.body) {
+    const typed = message.text.body.trim();
+    if (typed.length > 2) {
+      await sessionSvc.updateSession(session.id, { voice_transcript: typed });
+      await wa.sendText(phone, `✅ Got it! Generating your meme now... 🎨`);
+      return triggerPayment(phone, session);
+    }
+  }
+
+  await wa.sendText(phone, '⚠️ Please send a voice note or type your message.');
 }
 
 async function triggerPayment(phone, session) {
@@ -153,7 +200,7 @@ async function triggerPayment(phone, session) {
 
     await wa.sendText(
       phone,
-      `💳 *Almost there!*\n\nPay *₦500* to generate your meme:\n\n${paymentUrl}\n\n_After payment, type *done* to confirm._`
+      `💳 *Almost there!*\n\nPay *₦500* to unlock your meme:\n\n${paymentUrl}\n\n_After payment, type *done* to confirm._`
     );
   } catch (err) {
     console.error('Payment error:', err.message);
@@ -180,48 +227,79 @@ async function handlePaymentCheck(phone, session, message) {
 }
 
 async function generateAndSend(phone, session) {
-  await wa.sendText(phone, '🎨 Payment confirmed! Generating your meme now...');
+  await wa.sendText(phone, '🎨 Payment confirmed! Creating your unique meme now...\n\n_This takes about 15 seconds ✨_');
   await sessionSvc.updateSession(session.id, { state: 'GENERATING' });
 
   try {
     const freshSession = await sessionSvc.getSessionById(session.id);
-    const caption = await gptSvc.generateCaption({
+
+    // Generate caption and image prompt together
+    const { caption, imagePrompt } = await generateCaptionAndImagePrompt({
       category: freshSession.category,
       recipientName: freshSession.recipient_name,
-      notes: freshSession.notes,
       voiceTranscript: freshSession.voice_transcript,
+      notes: freshSession.notes,
+      gender: freshSession.notes, // gender stored in notes field temporarily
     });
 
-    const template = await templateSvc.selectTemplate(freshSession.category);
-    const { publicUrl } = await imageSvc.generateMemeImage({
-      templatePath: template.file_path,
-      caption,
+    // Generate image with DALL-E 3
+    const { dalleUrl, publicUrl } = await imageSvc.generateMemeImage({
+      imagePrompt,
       recipientName: freshSession.recipient_name,
       category: freshSession.category,
     });
 
+    // Log generated image
     await pool.query(
-      `INSERT INTO generated_images (session_id, phone, template_id, caption, recipient_name, image_path)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [session.id, phone, template.id, caption, freshSession.recipient_name, publicUrl]
+      `INSERT INTO generated_images (session_id, phone, caption, recipient_name, image_path)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [session.id, phone, caption, freshSession.recipient_name, publicUrl]
     );
 
-    await wa.sendImage(phone, publicUrl, caption);
-    await sessionSvc.updateSession(session.id, { state: 'DONE', generated_image_url: publicUrl });
+    // Send the meme — use DALL-E URL directly (faster)
+    await wa.sendImage(phone, dalleUrl, caption);
+
+    // Update session
+    await sessionSvc.updateSession(session.id, {
+      state: 'AWAITING_SHOUTOUT',
+      generated_image_url: publicUrl,
+    });
+
     await pool.query(
       'UPDATE users SET total_orders = total_orders + 1, updated_at = NOW() WHERE phone = $1',
       [phone]
     );
 
+    // Offer ElevenLabs shoutout
     await wa.sendButtons(
       phone,
-      `✅ Your meme is ready! Save and send it 🎉\n\nWant to create another one?`,
-      [{ id: 'RESTART', title: '🔄 Create Another' }]
+      `✅ Your meme don land! 🔥\n\nWant a *voice shoutout* to go with it? We go record the caption in a dramatic Nigerian accent — send to ${freshSession.recipient_name} for extra effect! 🎤\n\n_Just ₦200 extra_`,
+      [
+        { id: 'SHOUTOUT_YES', title: '🎤 Yes! Add Shoutout' },
+        { id: 'SHOUTOUT_NO', title: '✅ No, Am Good' },
+      ]
     );
   } catch (err) {
     console.error('Generation error:', err.message);
     await sessionSvc.updateSession(session.id, { state: 'DONE' });
-    await wa.sendText(phone, '❌ Something went wrong. Type *menu* to try again. Your payment is saved.');
+    await wa.sendText(phone, '❌ Something went wrong generating your meme. Type *menu* to try again. Your payment is saved.');
+  }
+}
+
+async function handleShoutoutDecision(phone, session, message) {
+  const btnId = message.interactive?.button_reply?.id;
+
+  if (btnId === 'SHOUTOUT_YES') {
+    await sessionSvc.updateSession(session.id, { state: 'DONE' });
+    // ElevenLabs integration - Phase 2
+    await wa.sendText(phone, '🎤 Shoutout feature coming very soon! Watch this space 🔥\n\nType *menu* to create another meme.');
+  } else {
+    await sessionSvc.updateSession(session.id, { state: 'DONE' });
+    await wa.sendButtons(
+      phone,
+      `🔥 Your meme don ready! Save am and send to ${(await sessionSvc.getSessionById(session.id))?.recipient_name || 'them'}!\n\nWant to create another one?`,
+      [{ id: 'RESTART', title: '🔄 Create Another' }]
+    );
   }
 }
 

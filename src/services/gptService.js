@@ -423,9 +423,22 @@ async function generateCaptionAndImagePrompt(session) {
     ? `\nIMPORTANT: The user uploaded a real photo (of themselves, their pastor, candidate, or business logo) that will be used as a reference image during generation. Write the image prompt so it makes sense for a real reference photo to be incorporated as the featured person/logo -- do not describe a generic stand-in face if a real one will be composited in, but you should still select an archetype for pose/setting/styling context.`
     : '';
 
-  const systemPrompt = `You are Nigeria's most creative meme and flyer director. Your job is to create designs that feel like they were made by a professional Lagos graphic designer -- specific, Nigerian, emotionally sharp, and shareable. Think of the NaijaSureFoods-style ads: a real photo-real scene PLUS layered graphic elements composited on top -- a fake phone notification card, a comic-style speech bubble, bold colour-block text banners, a checklist box, a logo lockup -- not just a captioned photo.
+  const systemPrompt = `You are Nigeria's most creative meme and flyer director. Your job is to create designs that feel like they were made by a professional Lagos graphic designer -- specific, Nigerian, emotionally sharp, and shareable.
 
 THE RULE: You do NOT invent from scratch. You SELECT from the options given, then personalize them using the real structured details and the sender's own words.
+
+CRITICAL DESIGN STANDARD -- match this exact level of visual density, not a simplified version of it:
+
+The reference standard is a real photo-real scene with AT LEAST 5-6 distinct graphic elements composited on top, each with its OWN background shape, its OWN icon or visual accent, and positioned at a DIFFERENT spot and angle (not all centered, not all the same size, not all neatly stacked in a column). Specifically include, by name, in the image prompt:
+
+1. A brand/business header lockup in a corner (logo wordmark + small tagline beneath it, e.g. top-right or top-left corner)
+2. A white or light rounded "notification card" or "info card" element with its own small icon (checkmark circle, bell, money bag, calendar icon etc.) and 2-3 lines of text in different weights/colours within that one card -- positioned off-center, NOT in the middle of the image
+3. Small hand-drawn sparkle/motion lines or burst accents near at least one element for energy
+4. A comic-style speech bubble with a visible tail pointing toward the main subject's mouth, mixing bold and regular text weight, containing the personalized phrase
+5. A rough-edged "paint stroke" or torn-paper style colour-block banner (not a clean rectangle) containing 2-3 lines of bold text in at least two different colours
+6. A bottom strip or secondary chip with 3-4 small icon+label pairs (e.g. checkmarks, truck/delivery icon, contact/headset icon, location pin) OR a second small accent chip with its own icon and short text
+
+Explicitly instruct the image model to vary the SIZE, ANGLE, and POSITION of these elements -- some larger, some smaller, some slightly rotated, overlapping the photo at different depths -- rather than evenly spaced or centered. The result should feel busy, layered, and "lived in" like a real Nigerian social media ad screenshot, not like a clean evenly-spaced template. Reuse real icons/emoji-style glyphs (checkmarks, bells, money bags, location pins, phone icons) inside the card/banner elements themselves, not just as decoration floating separately.
 
 STEP 1 -- SELECT (pick the best fit for the context):
 - Pick ONE character archetype from the list
@@ -441,10 +454,10 @@ STEP 2 -- PERSONALIZE (use the real structured details first, sender's words sec
 STEP 3 -- BUILD THE IMAGE PROMPT:
 - Start with the selected archetype description
 - Add the selected scene detail
-- Describe a layered composited design: name the specific graphic elements to include (e.g. a notification-style card, a speech bubble with the chosen phrase, a bold text banner with the key real detail like date/venue/offer, a small logo or watermark area)
-- If structured details exist (church name, date, time, venue, business name, candidate name, etc.), explicitly instruct the image model to render those exact real values as bold legible text in the composition -- spell them out verbatim in the prompt
+- Write out all 6 elements from the CRITICAL DESIGN STANDARD above by name and describe each one's content, icon, position, and rough size relative to the frame -- do not skip any of the 6, and do not let them default to evenly-spaced or centered placement
+- If structured details exist (church name, date, time, venue, business name, candidate name, etc.), explicitly instruct the image model to render those exact real values as bold legible text in the composition -- spell them out verbatim in the prompt, distributed across the relevant elements (e.g. date/time/venue in the bottom banner, business name in the header lockup, contact info in a small chip)
 - Specify: vibrant Nigerian colour palette, cinematic lighting, ultra realistic photography style, professional Nigerian graphic design quality, 1080x1080 square format
-- All text in the image must be BOLD, large enough to read clearly, and laid out like a real Nigerian social media ad or flyer
+- All text in the image must be BOLD, large enough to read clearly, and laid out like a real busy Nigerian social media ad -- varied angles and overlapping depth, not a clean symmetrical template
 ${photoInstruction}
 
 STEP 4 -- WRITE THE CAPTION:
@@ -482,7 +495,7 @@ Select, personalize, and return the JSON.`;
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o',
-    max_tokens: 1200,
+    max_tokens: 1800,
     temperature: 0.8,
     messages: [
       { role: 'system', content: systemPrompt },

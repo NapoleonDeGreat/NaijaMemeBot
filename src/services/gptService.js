@@ -1,13 +1,13 @@
 const OpenAI = require('openai');
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// ─────────────────────────────────────────────
+// =============================================
 // CATEGORY INTELLIGENCE LAYER
-// Instead of GPT freely inventing, it SELECTS from
-// concrete named options below, then personalizes.
-// This is why NaijaSureFoods examples work — named
-// archetypes + named scenes + named phrases.
-// ─────────────────────────────────────────────
+// GPT SELECTS from concrete named options below,
+// then personalizes using real structured details
+// (church name, venue, business name, etc.) where
+// available, plus the voice transcript for flavor.
+// =============================================
 
 const INTELLIGENCE = {
 
@@ -20,11 +20,11 @@ const INTELLIGENCE = {
       { id: 'proud_mama', desc: 'A Nigerian mother in Sunday best wrapper and blouse, pressing hand to chest in deep gratitude, gentle tears, warm home living room background' },
     ],
     scenarios: [
-      'Just received credit alert from recipient — amount changed their life today',
-      'Customer finally paid their debt after long time — business owner overwhelmed',
-      'Someone paid rent or school fees — family celebration breaking out',
+      'Just received credit alert from recipient -- amount changed their life today',
+      'Customer finally paid their debt after long time -- business owner overwhelmed',
+      'Someone paid rent or school fees -- family celebration breaking out',
       'Unexpected financial help arrived at darkest moment',
-      'Loyal customer returned after long absence — shop owner emotional',
+      'Loyal customer returned after long absence -- shop owner emotional',
     ],
     scenes: [
       'credit alert notification glowing on phone screen',
@@ -36,12 +36,12 @@ const INTELLIGENCE = {
     phrases: [
       'Na you do pass! God go bless you well well',
       'You too much! I no fit express am for mouth',
-      'See as you take save my life today — God bless your hustle',
-      'E be like say God send you — thank you die',
+      'See as you take save my life today -- God bless your hustle',
+      'E be like say God send you -- thank you die',
       'You spoil me! I go always remember this day',
-      'My person! You never disappoint — na loyalty be this',
-      'Omo, you dey show love anyhow — I appreciate you die',
-      'This one wey you do for me — heaven go remember you',
+      'My person! You never disappoint -- na loyalty be this',
+      'Omo, you dey show love anyhow -- I appreciate you die',
+      'This one wey you do for me -- heaven go remember you',
     ],
   },
 
@@ -54,28 +54,28 @@ const INTELLIGENCE = {
       { id: 'tailor_artisan', desc: 'A Nigerian tailor in her shop surrounded by colourful fabrics, holding up a beautifully made garment, beaming smile, appreciation and craft pride combined' },
     ],
     scenarios: [
-      'Loyal customer who has been buying for 1 year — owner overwhelmed with gratitude',
-      'Customer referred 5 new people to the business — public appreciation post',
-      'Customer left 5-star review online — business owner celebrating publicly',
+      'Loyal customer who has been buying for 1 year -- owner overwhelmed with gratitude',
+      'Customer referred 5 new people to the business -- public appreciation post',
+      'Customer left 5-star review online -- business owner celebrating publicly',
       'Customer who supported during hard times finally coming back',
       'New customer who drove far distance specifically for this business',
     ],
     scenes: [
-      'Nigerian shop front with customer appreciation banner boldly displayed',
+      'Nigerian shop front with customer appreciation banner boldly displayed, business logo prominent',
       'WhatsApp business screenshot showing "5 stars" customer review',
       'Market stall with cheerful "Thank You Customer" hand-painted sign',
       'Restaurant table with loyal customer seated, owner presenting food personally',
       'Business card exchange moment between proud owner and happy customer',
     ],
     phrases: [
-      'Oga/Madam [NAME], na you be our MVP — God bless you!',
+      'Oga/Madam [NAME], na you be our MVP -- God bless you!',
       'Customer like you na why we dey open shop every morning',
-      'Your loyalty dey make our business shine — e no go pass you',
-      'We see you, we appreciate you — [NAME] you too much!',
-      'Na people like [NAME] wey dey make business sweet — thank you die',
-      'Your support carry us — God go reward you plenty',
-      'Since day one you never disappoint — we dey celebrate you today',
-      '[NAME], you be the reason why we no give up — e no go pass you',
+      'Your loyalty dey make our business shine -- e no go pass you',
+      'We see you, we appreciate you -- [NAME] you too much!',
+      'Na people like [NAME] wey dey make business sweet -- thank you die',
+      'Your support carry us -- God go reward you plenty',
+      'Since day one you never disappoint -- we dey celebrate you today',
+      '[NAME], you be the reason why we no give up -- e no go pass you',
     ],
   },
 
@@ -84,15 +84,15 @@ const INTELLIGENCE = {
       { id: 'proud_graduate', desc: 'A young Nigerian graduate in academic gown and mortarboard, certificate held high overhead, huge smile, family members cheering behind them, golden hour campus setting' },
       { id: 'new_parent', desc: 'A Nigerian couple beaming with joy, husband in agbada, wife in aso-ebi, holding a newborn wrapped in colourful cloth, hospital or home setting' },
       { id: 'promotion_winner', desc: 'A sharp Nigerian professional in corporate attire, holding letter of promotion, fist raised, modern office background with colleagues applauding behind' },
-      { id: 'celebration_family', desc: 'A whole Nigerian family — three generations — in matching ankara fabric, arms around each other, confetti falling, outdoor compound celebration' },
+      { id: 'celebration_family', desc: 'A whole Nigerian family -- three generations -- in matching ankara fabric, arms around each other, confetti falling, outdoor compound celebration' },
       { id: 'new_car_owner', desc: 'A young Nigerian man or woman standing proud beside brand new car with ribbon on bonnet, keys raised, car dealership or home compound setting' },
     ],
     scenarios: [
-      'NYSC posting just received — family celebrating posting letter',
-      'University first class result announced — compound celebration erupting',
+      'NYSC posting just received -- family celebrating posting letter',
+      'University first class result announced -- compound celebration erupting',
       'Job offer letter received after months of searching',
-      'New baby born — family compound celebration breaking out',
-      'Business registration complete — entrepreneur celebrating new chapter',
+      'New baby born -- family compound celebration breaking out',
+      'Business registration complete -- entrepreneur celebrating new chapter',
     ],
     scenes: [
       'Confetti explosion over celebrating Nigerian family in matching outfits',
@@ -103,13 +103,13 @@ const INTELLIGENCE = {
     ],
     phrases: [
       '[NAME] you don make am! God wey start this go finish am well',
-      'From struggle to glory — e no easy but you do am!',
-      'Omo see as God show up for [NAME] — congratulations die!',
-      'Your time don reach — nothing go stop you again!',
-      'We always know say [NAME] go shine — today na proof!',
-      'Every prayer, every hustle — e don pay! Congratulations!',
-      '[NAME] level don change — e no go pass you!',
-      'Today na testimony day for [NAME] — God too faithful!',
+      'From struggle to glory -- e no easy but you do am!',
+      'Omo see as God show up for [NAME] -- congratulations die!',
+      'Your time don reach -- nothing go stop you again!',
+      'We always know say [NAME] go shine -- today na proof!',
+      'Every prayer, every hustle -- e don pay! Congratulations!',
+      '[NAME] level don change -- e no go pass you!',
+      'Today na testimony day for [NAME] -- God too faithful!',
     ],
   },
 
@@ -121,27 +121,27 @@ const INTELLIGENCE = {
       { id: 'young_couple', desc: 'A young Nigerian man in his 20s, one knee almost down, flowers in hand, expression of pure regret and hope, romantic soft bokeh background' },
     ],
     scenarios: [
-      'Big fight with partner — apology after 3 days of silence',
-      'Missed important family event — asking for forgiveness from mama',
-      'Business disagreement with loyal customer — making it right',
-      'Forgotten birthday — emergency apology the morning after',
-      'Said something hurtful in anger — wanting to fix it properly',
+      'Big fight with partner -- apology after 3 days of silence',
+      'Missed important family event -- asking for forgiveness from mama',
+      'Business disagreement with loyal customer -- making it right',
+      'Forgotten birthday -- emergency apology the morning after',
+      'Said something hurtful in anger -- wanting to fix it properly',
     ],
     scenes: [
       'Lone figure at door with humble posture, warm indoor light visible inside',
       'Hand-written note visible beside flowers and small gift',
-      'Two people almost reconciling — space between them closing',
-      'Prostration before elder — traditional Yoruba apology energy',
-      'Phone screen showing unsent message — frozen in regret',
+      'Two people almost reconciling -- space between them closing',
+      'Prostration before elder -- traditional Yoruba apology energy',
+      'Phone screen showing unsent message -- frozen in regret',
     ],
     phrases: [
-      'I mess up, I know — but my love for [NAME] never change',
-      'No fine words — I just want [NAME] to forgive me',
-      'I sorry die — [NAME] please na, I no go do am again',
-      'This one pain me too — I never mean to hurt [NAME]',
-      'I been wrong, I admit am — [NAME] you too important to lose',
-      'Forgive me [NAME] — I promise say things go change',
-      'I no fit sleep well since — [NAME] please hear me out',
+      'I mess up, I know -- but my love for [NAME] never change',
+      'No fine words -- I just want [NAME] to forgive me',
+      'I sorry die -- [NAME] please na, I no go do am again',
+      'This one pain me too -- I never mean to hurt [NAME]',
+      'I been wrong, I admit am -- [NAME] you too important to lose',
+      'Forgive me [NAME] -- I promise say things go change',
+      'I no fit sleep well since -- [NAME] please hear me out',
     ],
   },
 
@@ -153,27 +153,27 @@ const INTELLIGENCE = {
       { id: 'hustler_entrepreneur', desc: 'A young Nigerian entrepreneur with business idea notebook, urgent expressive face, Lagos hustle energy, the "this investment will change both our lives" look' },
     ],
     scenarios: [
-      'End of month, rent due tomorrow — emergency ask',
-      'Business opportunity that expires today — investor pitch to friend',
-      'School fees deadline in 48 hours — student reaching out',
-      'Stranded far from home — transportation emergency',
+      'End of month, rent due tomorrow -- emergency ask',
+      'Business opportunity that expires today -- investor pitch to friend',
+      'School fees deadline in 48 hours -- student reaching out',
+      'Stranded far from home -- transportation emergency',
       'Medical situation requiring urgent funds',
     ],
     scenes: [
       'Empty wallet dramatically open showing nothing inside',
       'Phone screen showing bank balance of near-zero',
       'Deadline notice on wall with urgent underlines',
-      'Food pot that is empty — hunger has arrived',
+      'Food pot that is empty -- hunger has arrived',
       'Business plan notebook held open hopefully',
     ],
     phrases: [
-      '[NAME] I know say I get liver — but na only you I fit ask',
-      'My person, I no want beg but situation don push me — help me',
-      'I promise I go pay back — [NAME] na you be my last resort',
-      'God go bless you if you help [NAME] right now — e dey urgent',
-      'I no go forget this one — [NAME] please na, just this once',
-      'My situation bad bad — [NAME] you be my miracle today',
-      'I dey come to you because I know say your heart dey — help me [NAME]',
+      '[NAME] I know say I get liver -- but na only you I fit ask',
+      'My person, I no want beg but situation don push me -- help me',
+      'I promise I go pay back -- [NAME] na you be my last resort',
+      'God go bless you if you help [NAME] right now -- e dey urgent',
+      'I no go forget this one -- [NAME] please na, just this once',
+      'My situation bad bad -- [NAME] you be my miracle today',
+      'I dey come to you because I know say your heart dey -- help me [NAME]',
     ],
   },
 
@@ -194,17 +194,17 @@ const INTELLIGENCE = {
     scenes: [
       'Rooftop Lagos sunset with city lights beginning to glow below',
       'Single red rose against warm bokeh background',
-      'Phone notification showing unread messages — building courage to reply',
+      'Phone notification showing unread messages -- building courage to reply',
       'Two shadows approaching each other on a bridge',
       'Nollywood-style romantic outdoor setting, golden hour',
     ],
     phrases: [
-      '[NAME] since I see you my heart never rest — make I be your person',
-      'I no dey good with plenty words — but I know say I want [NAME] for life',
+      '[NAME] since I see you my heart never rest -- make I be your person',
+      'I no dey good with plenty words -- but I know say I want [NAME] for life',
       '[NAME] you be the one wey dey scatter my brain in a good way',
-      'I don carry this feeling too long — [NAME] answer me',
-      'God create [NAME] special — and I want to be the one to say thank you daily',
-      '[NAME] my heart dey do anyhow when you dey around — that means something',
+      'I don carry this feeling too long -- [NAME] answer me',
+      'God create [NAME] special -- and I want to be the one to say thank you daily',
+      '[NAME] my heart dey do anyhow when you dey around -- that means something',
       'I fit love plenty people but [NAME] na different thing entirely',
     ],
   },
@@ -224,51 +224,51 @@ const INTELLIGENCE = {
       'New Year or Easter special service',
     ],
     scenes: [
-      'Church auditorium filled with raised hands during worship',
-      'Cross glowing with warm golden rays, dramatic church lighting',
-      'Outdoor crusade ground at night with masses gathered',
-      'Church banner unfurling with powerful programme title',
-      'Prayer mountain at sunrise — solitary worshipper silhouette',
+      'Church auditorium filled with raised hands during worship, programme banner with theme and date prominently displayed',
+      'Cross glowing with warm golden rays, dramatic church lighting, church name and venue clearly shown',
+      'Outdoor crusade ground at night with masses gathered, event details banner visible',
+      'Church banner unfurling with powerful programme title, date, time and venue in bold text',
+      'Prayer mountain at sunrise -- solitary worshipper silhouette',
     ],
     phrases: [
-      'God show up again — testimony time at [CHURCH NAME]',
-      'Come and receive your miracle — the Lord is here',
-      'This programme go change your story forever — do not miss it',
-      'Heaven dey back this programme — come and see',
-      'Your season of testimony don reach — join us',
-      'The anointing dey flow — be there in person',
+      'God show up again -- testimony time at [CHURCH NAME]',
+      'Come and receive your miracle -- the Lord is here',
+      'This programme go change your story forever -- do not miss it',
+      'Heaven dey back this programme -- come and see',
+      'Your season of testimony don reach -- join us',
+      'The anointing dey flow -- be there in person',
     ],
   },
 
   business_advert: {
     archetypes: [
       { id: 'confident_ceo', desc: 'A sharp Nigerian entrepreneur in tailored suit or smart ankara, arms crossed, Lagos skyline or modern office behind, the look of someone who built something real' },
-      { id: 'market_seller_proud', desc: 'A Nigerian market trader proudly displaying products — fresh food, fabric, electronics — confident hands-on-hip pose, stall beautifully arranged' },
+      { id: 'market_seller_proud', desc: 'A Nigerian market trader proudly displaying products -- fresh food, fabric, electronics -- confident hands-on-hip pose, stall beautifully arranged' },
       { id: 'delivery_hustler', desc: 'A young Nigerian dispatch rider in branded vest on motorbike, helmet off, big confident smile, Lagos traffic visible behind, hustle energy' },
       { id: 'fashion_designer', desc: 'A Nigerian fashion designer holding up stunning garment creation, tailor shop background, pride of craft visible, modern Naija fashion energy' },
     ],
     scenarios: [
-      'New product launch — announcing to market',
-      'Promo or discount — limited time offer urgency',
+      'New product launch -- announcing to market',
+      'Promo or discount -- limited time offer urgency',
       'Business re-opening after expansion or renovation',
       'Anniversary sale celebration with customers',
       'New service or delivery area launch',
     ],
     scenes: [
-      'Shop front with bold OPEN signage and smiling owner',
-      'Product display laid out professionally with price tags visible',
+      'Shop front with bold OPEN signage, business name and logo prominent, smiling owner',
+      'Product display laid out professionally with price tags and offer details visible',
       'Before-and-after transformation showing business growth',
-      'Delivery unboxing moment — customer excitement',
-      'WhatsApp order message screenshot with ORDER NOW energy',
+      'Delivery unboxing moment -- customer excitement, contact info displayed',
+      'WhatsApp order message screenshot with ORDER NOW energy, contact number bold',
     ],
     phrases: [
-      'We dey give you the best — come and see for yourself',
-      'Quality no dey lie — [BUSINESS] don prove am since day one',
-      'Order now before stock finish — e dey go fast fast',
-      'Your satisfaction na our prayer — try us today',
-      'Lagos best kept secret — [BUSINESS] has arrived',
-      'We no dey close until your order don sort — call us now',
-      'See quality, feel quality — [BUSINESS] na different level',
+      'We dey give you the best -- come and see for yourself',
+      'Quality no dey lie -- [BUSINESS] don prove am since day one',
+      'Order now before stock finish -- e dey go fast fast',
+      'Your satisfaction na our prayer -- try us today',
+      'Lagos best kept secret -- [BUSINESS] has arrived',
+      'We no dey close until your order don sort -- call us now',
+      'See quality, feel quality -- [BUSINESS] na different level',
     ],
   },
 
@@ -280,25 +280,25 @@ const INTELLIGENCE = {
     ],
     scenarios: [
       'Campaign rally announcement for next weekend',
-      'Election day mobilisation — vote for our candidate',
+      'Election day mobilisation -- vote for our candidate',
       'Policy promise announcement with accountability energy',
       'Ward meeting or community townhall invitation',
       'Victory celebration after election result',
     ],
     scenes: [
-      'Massive rally ground with sea of supporters in party colours',
-      'Candidate shaking hands with market trader — grassroots energy',
-      'Nigerian flag waving over crowd at sunset',
-      'Ballot box moment — civic duty energy',
-      'Community project commissioned — promises kept',
+      'Massive rally ground with sea of supporters in party colours, candidate name and position bold across banner',
+      'Candidate shaking hands with market trader -- grassroots energy, slogan visible',
+      'Nigerian flag waving over crowd at sunset, election date prominent',
+      'Ballot box moment -- civic duty energy',
+      'Community project commissioned -- promises kept, candidate name and slogan featured',
     ],
     phrases: [
-      'The change wey we need don reach — vote [NAME]',
-      'Our community dey first — [NAME] go make am happen',
-      'New chapter, new leadership — [NAME] for the people',
-      'We don wait long enough — time to act, vote [NAME]',
-      'Your vote na your voice — use am for [NAME]',
-      '[NAME] na one of us — e understand our struggle',
+      'The change wey we need don reach -- vote [NAME]',
+      'Our community dey first -- [NAME] go make am happen',
+      'New chapter, new leadership -- [NAME] for the people',
+      'We don wait long enough -- time to act, vote [NAME]',
+      'Your vote na your voice -- use am for [NAME]',
+      '[NAME] na one of us -- e understand our struggle',
     ],
   },
 
@@ -310,45 +310,78 @@ const INTELLIGENCE = {
       { id: 'admission_winner', desc: 'A young Nigerian holding JAMB or university admission letter, phone screenshot of result visible, family gathering behind, first person in family to get admission energy' },
     ],
     scenarios: [
-      'First class degree result — family compound celebration',
-      'JAMB admission letter received — scholarship announcement',
-      'NYSC call-up letter — posting to desired state',
+      'First class degree result -- family compound celebration',
+      'JAMB admission letter received -- scholarship announcement',
+      'NYSC call-up letter -- posting to desired state',
       'WAEC/NECO distinction results released',
-      'Scholarship abroad awarded — community celebrating',
+      'Scholarship abroad awarded -- community celebrating',
     ],
     scenes: [
-      'Academic certificate framed and held up on graduation day',
-      'NYSC khaki uniform first wear — family photo moment',
-      'Results notification on JAMB portal — screenshot moment',
-      'University gate in background — orientation day arrival',
-      'Library study session that finally paid off — books and result letter together',
+      'Academic certificate framed and held up on graduation day, school name and achievement clearly shown',
+      'NYSC khaki uniform first wear -- family photo moment',
+      'Results notification on JAMB portal -- screenshot moment, achievement and date featured',
+      'University gate in background -- orientation day arrival, school name visible',
+      'Library study session that finally paid off -- books and result letter together',
     ],
     phrases: [
-      '[NAME] you don show them — first class no be small thing!',
-      'From night classes to glory — [NAME] you deserve am!',
-      'This result na proof say hardwork pay — [NAME] we proud die!',
-      'Mama tears don flow — [NAME] you do am for the family!',
-      'From lesson teacher wahala to first class — God too faithful!',
-      '[NAME] you don silence every doubt — congratulations!',
-      'The hustle was real but [NAME] never give up — e pay today!',
+      '[NAME] you don show them -- first class no be small thing!',
+      'From night classes to glory -- [NAME] you deserve am!',
+      'This result na proof say hardwork pay -- [NAME] we proud die!',
+      'Mama tears don flow -- [NAME] you do am for the family!',
+      'From lesson teacher wahala to first class -- God too faithful!',
+      '[NAME] you don silence every doubt -- congratulations!',
+      'The hustle was real but [NAME] never give up -- e pay today!',
     ],
   },
 
 };
 
-// ─────────────────────────────────────────────
-// GPT SELECTION + PERSONALIZATION ENGINE
-// GPT picks from the banks above, personalizes
-// to the specific person/context, builds the prompt.
-// ─────────────────────────────────────────────
+// Maps category -> which structured fields it collects, for building
+// the "STRUCTURED DETAILS" block sent to GPT. Keys match the session
+// columns added in migration.sql.
+const STRUCTURED_FIELD_LABELS = {
+  church: {
+    church_name: 'Church name',
+    programme_title: 'Programme title',
+    theme: 'Theme',
+    event_date: 'Date',
+    event_time: 'Time',
+    venue: 'Venue',
+    guest_minister: 'Guest minister',
+  },
+  business_advert: {
+    business_name: 'Business name',
+    offer_product: 'Offer/Product',
+    contact_info: 'Contact info',
+  },
+  customer_appreciation: {
+    business_name: 'Business name',
+    offer_product: 'What the customer is being appreciated for',
+    contact_info: 'Contact info',
+  },
+  political: {
+    candidate_name: 'Candidate name',
+    position_title: 'Position contesting for',
+    party_slogan: 'Party/Slogan',
+    election_date: 'Election date',
+  },
+  academic: {
+    school_name: 'School/Institution name',
+    achievement_name: 'Achievement/Event name',
+    achievement_date: 'Date',
+  },
+};
 
-async function generateCaptionAndImagePrompt({
-  category,
-  recipientName,
-  voiceTranscript,
-  notes,
-  gender,
-}) {
+async function generateCaptionAndImagePrompt(session) {
+  const {
+    category,
+    recipient_name: recipientName,
+    voice_transcript: voiceTranscript,
+    notes,
+    gender,
+    photo_url: photoUrl,
+  } = session;
+
   const intel = INTELLIGENCE[category] || INTELLIGENCE.thank_you;
 
   const archetypeList = intel.archetypes
@@ -367,6 +400,18 @@ async function generateCaptionAndImagePrompt({
     .map((p, i) => `${i + 1}. ${p}`)
     .join('\n');
 
+  // Build the structured-details block, if this category collects any
+  const fieldMap = STRUCTURED_FIELD_LABELS[category];
+  let structuredDetails = '';
+  if (fieldMap) {
+    const lines = Object.entries(fieldMap)
+      .map(([col, label]) => (session[col] ? `${label}: ${session[col]}` : null))
+      .filter(Boolean);
+    if (lines.length > 0) {
+      structuredDetails = `\nSTRUCTURED DETAILS PROVIDED BY USER (use these exact real values -- do not invent placeholder values when these are present):\n${lines.join('\n')}\n`;
+    }
+  }
+
   const context = [
     `Recipient name: ${recipientName}`,
     gender ? `Recipient gender: ${gender}` : null,
@@ -374,33 +419,39 @@ async function generateCaptionAndImagePrompt({
     notes ? `Extra notes: ${notes}` : null,
   ].filter(Boolean).join('\n');
 
-  const systemPrompt = `You are Nigeria's most creative meme director. Your job is to create memes that feel like they were made by a professional Lagos graphic designer — specific, Nigerian, funny, emotional, and shareable.
+  const photoInstruction = photoUrl
+    ? `\nIMPORTANT: The user uploaded a real photo (of themselves, their pastor, candidate, or business logo) that will be used as a reference image during generation. Write the image prompt so it makes sense for a real reference photo to be incorporated as the featured person/logo -- do not describe a generic stand-in face if a real one will be composited in, but you should still select an archetype for pose/setting/styling context.`
+    : '';
 
-THE RULE: You do NOT invent from scratch. You SELECT from the options given, then personalize them for the specific person.
+  const systemPrompt = `You are Nigeria's most creative meme and flyer director. Your job is to create designs that feel like they were made by a professional Lagos graphic designer -- specific, Nigerian, emotionally sharp, and shareable. Think of the NaijaSureFoods-style ads: a real photo-real scene PLUS layered graphic elements composited on top -- a fake phone notification card, a comic-style speech bubble, bold colour-block text banners, a checklist box, a logo lockup -- not just a captioned photo.
 
-STEP 1 — SELECT (pick the best fit for the context):
+THE RULE: You do NOT invent from scratch. You SELECT from the options given, then personalize them using the real structured details and the sender's own words.
+
+STEP 1 -- SELECT (pick the best fit for the context):
 - Pick ONE character archetype from the list
 - Pick ONE scenario from the list
 - Pick ONE scene detail from the list
-- Pick ONE phrase from the list (replace [NAME] with actual recipient name)
+- Pick ONE phrase from the list (replace [NAME]/[CHURCH NAME]/[BUSINESS] with the actual real value provided)
 
-STEP 2 — PERSONALIZE (use the sender's actual words/context):
-- Extract the emotional core from what the sender recorded
-- Add one specific detail from the sender's context into the caption and image prompt
-- Make the recipient's name prominent and natural
+STEP 2 -- PERSONALIZE (use the real structured details first, sender's words second):
+- If STRUCTURED DETAILS are provided above, those are real facts (real church name, real date, real venue, real business name, etc.) -- use them exactly, verbatim, prominently in both the caption and the image prompt's text overlay instructions. Never substitute a generic placeholder when a real value was given.
+- Extract emotional flavor from the sender's recorded words for tone and personality
+- Make the recipient's name (or candidate/business name) prominent and natural
 
-STEP 3 — BUILD THE IMAGE PROMPT:
-- Start with the selected archetype description (word for word, then adapt)
+STEP 3 -- BUILD THE IMAGE PROMPT:
+- Start with the selected archetype description
 - Add the selected scene detail
-- Describe bold Nigerian graphic design text overlay showing: headline phrase + recipient name + any key detail (amount, business name, achievement etc. if mentioned)
+- Describe a layered composited design: name the specific graphic elements to include (e.g. a notification-style card, a speech bubble with the chosen phrase, a bold text banner with the key real detail like date/venue/offer, a small logo or watermark area)
+- If structured details exist (church name, date, time, venue, business name, candidate name, etc.), explicitly instruct the image model to render those exact real values as bold legible text in the composition -- spell them out verbatim in the prompt
 - Specify: vibrant Nigerian colour palette, cinematic lighting, ultra realistic photography style, professional Nigerian graphic design quality, 1080x1080 square format
-- The text in the image must be BOLD, readable, and designed like a real Nigerian social media post
+- All text in the image must be BOLD, large enough to read clearly, and laid out like a real Nigerian social media ad or flyer
+${photoInstruction}
 
-STEP 4 — WRITE THE CAPTION:
+STEP 4 -- WRITE THE CAPTION:
 - 2 sentences max
 - Nigerian Pidgin
-- Include recipient name
-- Based on the selected phrase but personalized to the sender's actual words
+- Include recipient name and, where relevant, the key real detail (amount, business name, date, achievement)
+- Based on the selected phrase but personalized
 
 Return ONLY valid JSON:
 {
@@ -412,7 +463,7 @@ Return ONLY valid JSON:
 
   const userPrompt = `CONTEXT:
 ${context}
-
+${structuredDetails}
 Category: ${category}
 
 CHARACTER ARCHETYPES (pick one):
@@ -424,14 +475,14 @@ ${scenarioList}
 SCENE DETAILS (pick one):
 ${sceneList}
 
-NIGERIAN PHRASES (pick one, personalize with recipient name):
+NIGERIAN PHRASES (pick one, personalize with real names/values):
 ${phraseList}
 
 Select, personalize, and return the JSON.`;
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o',
-    max_tokens: 1000,
+    max_tokens: 1200,
     temperature: 0.8,
     messages: [
       { role: 'system', content: systemPrompt },
@@ -447,4 +498,4 @@ Select, personalize, and return the JSON.`;
   };
 }
 
-module.exports = { generateCaptionAndImagePrompt };
+module.exports = { generateCaptionAndImagePrompt, STRUCTURED_FIELD_LABELS };

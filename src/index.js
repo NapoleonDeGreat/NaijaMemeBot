@@ -9,6 +9,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/generated', express.static(path.join(__dirname, '../public/generated')));
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 app.use('/webhook', require('./routes/webhook'));
 app.use('/payment', require('./routes/payment'));

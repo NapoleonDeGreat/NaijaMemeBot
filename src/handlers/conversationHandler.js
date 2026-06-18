@@ -180,7 +180,10 @@ async function handleIncomingMessage(phone, message, messageId) {
   let session = await sessionSvc.getActiveSession(phone);
   const msgText = (message.text?.body || '').trim().toLowerCase();
 
-  if (['hi', 'hello', 'start', 'menu', 'restart', '0'].includes(msgText) || !session) {
+  const GREETING_TRIGGERS = ['hi', 'hello', 'start', 'menu', 'restart', '0'];
+  const isGreeting = GREETING_TRIGGERS.some(trigger => msgText === trigger || msgText.startsWith(trigger + ' '));
+
+  if (isGreeting || !session) {
     session = await sessionSvc.createSession(phone);
     return sendMenu(phone);
   }
@@ -202,10 +205,13 @@ async function handleIncomingMessage(phone, message, messageId) {
 }
 
 async function sendMenu(phone) {
+  // WhatsApp list messages cap at 10 rows total across all sections.
+  // 13 categories no longer fit in one message, so this is split into
+  // two sequential list messages instead.
   await wa.sendList(
     phone,
     '🎨 NaijaMeme Bot',
-    'Welcome! What type of meme/flier do you want to create?\n\nPick a category below 👇',
+    'Welcome! What type of meme/flier do you want to create?\n\nPick a category below 👇 (more categories in the next message)',
     'Choose Category',
     [
       {
@@ -226,6 +232,15 @@ async function sendMenu(phone) {
           { id: 'CAT_wedding', title: '💍 Wedding' },
         ],
       },
+    ]
+  );
+
+  await wa.sendList(
+    phone,
+    '🎨 More Categories',
+    'Business, church, and special categories 👇',
+    'Choose Category',
+    [
       {
         title: 'Business & Special',
         rows: [

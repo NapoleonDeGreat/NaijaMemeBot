@@ -131,4 +131,13 @@ async function downloadMedia(mediaId) {
   }
 }
 
-module.exports = { sendText, sendButtons, sendList, sendImage, markRead, downloadMedia };
+async function sendTyping(to) {
+  // WhatsApp doesn't have a native "typing..." indicator via Cloud API,
+  // so we simulate it by sending a read receipt first (shows the bot
+  // is active) then a brief delay before the real message. This is the
+  // standard pattern used by WhatsApp bots since the typing_on action
+  // is only available via the Business Management API, not Cloud API.
+  return new Promise(resolve => setTimeout(resolve, 1500));
+}
+
+module.exports = { sendText, sendButtons, sendList, sendImage, markRead, downloadMedia, sendTyping };

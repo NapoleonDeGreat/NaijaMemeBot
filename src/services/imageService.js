@@ -18,11 +18,19 @@ if (!fs.existsSync(OUTPUT_DIR)) {
  *   supports up to 16 reference images per edit call, blended together).
  * - If no photos, uses the standard /images/generations endpoint.
  */
-async function generateMemeImage({ imagePrompt, recipientName, category, photoLocalPaths }) {
+async function generateMemeImage({ imagePrompt, recipientName, category, photoLocalPaths, outfitPreference }) {
   const watermarkText = process.env.WATERMARK_TEXT || 'NaijaMeme';
   const fullPrompt = `${imagePrompt}. Add a small subtle "${watermarkText}" watermark text in the bottom right corner. Square 1080x1080 format.`;
 
   const validPhotoPaths = (photoLocalPaths || []).filter(p => p && fs.existsSync(p));
+
+  // Outfit preference applies to ANY category with an uploaded photo, not
+  // just weddings -- a business owner or birthday celebrant may also want
+  // their real outfit kept rather than replaced.
+  const keepOutfit = outfitPreference && /keep/i.test(outfitPreference);
+  const clothingInstruction = keepOutfit
+    ? `- Clothing: PRESERVE exactly as worn in the reference photo -- same garment, colour, pattern, and fit. Do NOT change or upgrade the outfit.`
+    : `- Clothing: upgrade to suit the flyer style (formal attire, traditional wear, campaign suit, wedding outfit -- whatever the design calls for)`;
 
   let response;
   try {
@@ -50,12 +58,12 @@ PRESERVE (do not alter under any circumstances):
 - Do NOT idealize, smooth, slim, or "improve" any face -- use the exact real face from the reference image
 
 CHANGE (apply the full design around the preserved faces):
-- Clothing: upgrade to suit the flyer style (formal attire, traditional wear, campaign suit, wedding outfit -- whatever the design calls for)
+${clothingInstruction}
 - Background: replace entirely with the designed scene described above
 - Lighting: apply cinematic studio-quality lighting (directional key light, soft fill, rim separation) while preserving facial features
 - Add all graphic design elements (text, banners, logos, data bars) as described in the design brief above
 
-The final result must look like a professional Nigerian graphic designer took the real uploaded photo, professionally retouched it to 8K studio quality, dressed the person appropriately, and composited them into a premium designed flyer -- NOT like AI generated a new face inspired by the photo.`;
+The final result must look like a professional Nigerian graphic designer took the real uploaded photo, professionally retouched it to 8K studio quality, ${keepOutfit ? 'kept their exact outfit' : 'dressed the person appropriately'}, and composited them into a premium designed flyer -- NOT like AI generated a new face inspired by the photo.`;
 
       const imageFiles = await Promise.all(
         validPhotoPaths.map(p => toFile(fs.createReadStream(p), null, { type: 'image/jpeg' }))
@@ -105,4 +113,58 @@ The final result must look like a professional Nigerian graphic designer took th
   };
 }
 
-module.exports = { generateMemeImage };
+/**
+ * Edits ONLY the text on a previously generated design, keeping the
+ * same people, layout, colours, and composition unchanged. Uses the
+ * same /images/edits endpoint as the main generation path, but with a
+ * tightly scoped change/preserve prompt so gpt-image-2 doesn't
+ * reinterpret the whole image.
+ */
+async function editGeneratedImageText({ originalLocalPath, editRequest }) {
+  const watermarkText = process.env.WATERMARK_TEXT || 'NaijaMeme';
+
+  const editPrompt = `TEXT-ONLY EDIT REQUEST: ${editRequest}
+
+PRESERVE EVERYTHING ELSE EXACTLY AS-IS:
+- Every person's face, exactly as in the original image
+- All clothing, exactly as in the original image
+- The entire background, scene, lighting, and colour palette, exactly as in the original image
+- All layout positioning, typography style, and design elements that are NOT part of this specific text change
+- The "${watermarkText}" watermark, exactly as positioned in the original
+
+ONLY apply the specific text change described above. Do not redesign, restyle, or reinterpret any other part of the image. This is a precise, surgical text edit -- not a new design.`;
+
+  try {
+    const imageFile = await toFile(fs.createReadStream(originalLocalPath), null, { type: 'image/jpeg' });
+
+    const response = await client.images.edit({
+      model: 'gpt-image-2',
+      image: imageFile,
+      prompt: editPrompt,
+      size: '1024x1024',
+      quality: 'high',
+    });
+
+    const base64Data = response.data[0].b64_json;
+    if (!base64Data) {
+      throw new Error('No image data returned from OpenAI text edit');
+    }
+
+    const filename = `${uuidv4()}.jpg`;
+    const outputPath = path.join(OUTPUT_DIR, filename);
+    fs.writeFileSync(outputPath, Buffer.from(base64Data, 'base64'));
+
+    const baseUrl = (process.env.APP_URL || '').replace(/\/+$/, '');
+
+    return {
+      localPath: outputPath,
+      filename,
+      publicUrl: `${baseUrl}/generated/${filename}`,
+    };
+  } catch (err) {
+    console.error('OpenAI text edit FULL error:', JSON.stringify(err.error || err.response?.data || err.message));
+    throw err;
+  }
+}
+
+module.exports = { generateMemeImage, editGeneratedImageText };

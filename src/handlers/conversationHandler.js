@@ -192,6 +192,7 @@ async function handleIncomingMessage(phone, message, messageId) {
     case 'STRUCTURED_QA': return handleStructuredAnswer(phone, session, message);
     case 'AWAITING_PHOTO_DECISION': return handlePhotoDecision(phone, session, message);
     case 'AWAITING_PHOTO_UPLOAD': return handlePhotoUpload(phone, session, message);
+    case 'AWAITING_OUTFIT_PREFERENCE': return handleOutfitPreference(phone, session, message);
     case 'CATEGORY_SELECTED': return handleRecipientName(phone, session, message);
     case 'RECIPIENT_NAME': return handleGender(phone, session, message);
     case 'AWAITING_LANGUAGE': return handleLanguageSelection(phone, session, message);
@@ -199,6 +200,7 @@ async function handleIncomingMessage(phone, message, messageId) {
     case 'AWAITING_VOICE': return handleVoiceInput(phone, session, message);
     case 'AWAITING_PAYMENT': return handlePaymentCheck(phone, session, message);
     case 'AWAITING_SHOUTOUT': return handleShoutoutDecision(phone, session, message);
+    case 'AWAITING_TEXT_EDIT': return handleTextEdit(phone, session, message);
     default: return sendMenu(phone);
   }
 }
@@ -424,8 +426,40 @@ async function advancePhotoRoleOrContinue(phone, sessionId, completedRoleStep) {
   return proceedPastPhotos(phone, sessionId);
 }
 
+// Categories where the photo roles are of actual people (not just a
+// business logo) -- these are the ones where "keep outfit vs upgrade
+// clothing" is a meaningful question. business_advert/customer_appreciation
+// default photo role is often a logo, so we skip asking there unless a
+// photo was genuinely uploaded.
+const PERSON_PHOTO_CATEGORIES = new Set([
+  'birthday', 'wedding', 'church', 'political', 'naming_ceremony',
+  'business_advert', 'customer_appreciation', 'academic',
+]);
+
 async function proceedPastPhotos(phone, sessionId) {
   const freshSession = await sessionSvc.getSessionById(sessionId);
+
+  let photoCount = 0;
+  try {
+    const urls = freshSession.photo_urls ? JSON.parse(freshSession.photo_urls) : [];
+    photoCount = urls.length;
+  } catch {
+    photoCount = 0;
+  }
+
+  // If at least one real photo was uploaded for a person-photo category,
+  // ask once whether to keep the exact outfit or upgrade it for the design.
+  if (photoCount > 0 && PERSON_PHOTO_CATEGORIES.has(freshSession.category) && !freshSession.outfit_preference) {
+    await sessionSvc.updateSession(sessionId, { state: 'AWAITING_OUTFIT_PREFERENCE' });
+    return wa.sendButtons(
+      phone,
+      `📸 Got the photo(s)! One more thing -- for the design, should we *keep the exact outfit* from your photo, or *upgrade it* to suit the flyer style?`,
+      [
+        { id: 'OUTFIT_KEEP', title: '👕 Keep Outfit' },
+        { id: 'OUTFIT_UPGRADE', title: '✨ Upgrade Outfit' },
+      ]
+    );
+  }
 
   if (SKIP_GENERIC_NAME_TAIL.has(freshSession.category)) {
     // This category already collected its own subject name(s) via
@@ -436,6 +470,31 @@ async function proceedPastPhotos(phone, sessionId) {
   // Shouldn't normally happen (structured categories all skip the tail),
   // but fall back safely just in case.
   await sessionSvc.updateSession(sessionId, { state: 'CATEGORY_SELECTED' });
+  return wa.sendText(phone, 'What is the *name* of the person this is for?');
+}
+
+async function handleOutfitPreference(phone, session, message) {
+  const btnId = message.interactive?.button_reply?.id;
+  const preference = btnId === 'OUTFIT_KEEP' ? 'keep outfits' : btnId === 'OUTFIT_UPGRADE' ? 'upgrade to suit flyer style' : null;
+
+  if (!preference) {
+    return wa.sendButtons(
+      phone,
+      'Please choose an option:',
+      [
+        { id: 'OUTFIT_KEEP', title: '👕 Keep Outfit' },
+        { id: 'OUTFIT_UPGRADE', title: '✨ Upgrade Outfit' },
+      ]
+    );
+  }
+
+  await sessionSvc.updateSession(session.id, { outfit_preference: preference });
+
+  if (SKIP_GENERIC_NAME_TAIL.has(session.category)) {
+    return askLanguage(phone, session.id);
+  }
+
+  await sessionSvc.updateSession(session.id, { state: 'CATEGORY_SELECTED' });
   return wa.sendText(phone, 'What is the *name* of the person this is for?');
 }
 
@@ -620,7 +679,7 @@ async function generateAndSend(phone, session) {
       photoLocalPaths = [];
     }
 
-    const { publicUrl } = await imageSvc.generateMemeImage({
+    const { publicUrl, localPath: generatedLocalPath } = await imageSvc.generateMemeImage({
       imagePrompt,
       recipientName: freshSession.recipient_name,
       category: freshSession.category,
@@ -657,6 +716,7 @@ async function generateAndSend(phone, session) {
     await sessionSvc.updateSession(session.id, {
       state: 'AWAITING_SHOUTOUT',
       generated_image_url: publicUrl,
+      generated_image_local_path: generatedLocalPath,
     });
 
     await pool.query(
@@ -672,6 +732,11 @@ async function generateAndSend(phone, session) {
         { id: 'SHOUTOUT_NO', title: '✅ No, Am Good' },
       ]
     );
+
+    await wa.sendText(
+      phone,
+      `✏️ Need to fix the *text* on this design? Just type "*edit text*" and tell us what to change -- we'll keep the same design and photo, just update the words.`
+    );
   } catch (err) {
     console.error('Generation error:', err.message);
     console.error('Generation error FULL DETAIL:', JSON.stringify(err.error || err.response?.data || err, Object.getOwnPropertyNames(err)));
@@ -682,17 +747,61 @@ async function generateAndSend(phone, session) {
 
 async function handleShoutoutDecision(phone, session, message) {
   const btnId = message.interactive?.button_reply?.id;
+  const typedText = (message.text?.body || '').trim().toLowerCase();
+
+  if (typedText.startsWith('edit text') || typedText === 'edit') {
+    await sessionSvc.updateSession(session.id, { state: 'AWAITING_TEXT_EDIT' });
+    return wa.sendText(
+      phone,
+      `✏️ No wahala! Type out the new text exactly as you want it to appear -- for example: "change the date to 5th August" or "fix the name to Chioma Eze".`
+    );
+  }
 
   if (btnId === 'SHOUTOUT_YES') {
     await sessionSvc.updateSession(session.id, { state: 'DONE' });
     await wa.sendText(phone, '🎤 Shoutout feature coming very soon! Watch this space 🔥\n\nType *menu* to create another meme.');
-  } else {
+  } else if (btnId === 'SHOUTOUT_NO') {
     await sessionSvc.updateSession(session.id, { state: 'DONE' });
     await wa.sendButtons(
       phone,
       `🔥 Your meme don ready! Save am and share!\n\nWant to create another one?`,
       [{ id: 'RESTART', title: '🔄 Create Another' }]
     );
+  }
+}
+
+async function handleTextEdit(phone, session, message) {
+  const editRequest = message.text?.body?.trim();
+  if (!editRequest || editRequest.length < 3) {
+    return wa.sendText(phone, '⚠️ Please describe what text to change, e.g. "change the date to 5th August".');
+  }
+
+  if (!session.generated_image_local_path || !fs.existsSync(session.generated_image_local_path)) {
+    await sessionSvc.updateSession(session.id, { state: 'DONE' });
+    return wa.sendText(phone, '⚠️ Sorry, the original design is no longer available to edit. Type *menu* to create a new one.');
+  }
+
+  await wa.sendTyping(phone);
+  await wa.sendText(phone, '✏️ Updating your text now, keeping everything else the same... ✨');
+
+  try {
+    const result = await imageSvc.editGeneratedImageText({
+      originalLocalPath: session.generated_image_local_path,
+      editRequest,
+    });
+
+    await sessionSvc.updateSession(session.id, {
+      generated_image_url: result.publicUrl,
+      generated_image_local_path: result.localPath,
+      state: 'AWAITING_SHOUTOUT',
+    });
+
+    await wa.sendImage(phone, result.publicUrl, 'Updated! ✅');
+    await wa.sendText(phone, `✅ Updated! Need another text change? Type "edit text" again, or type *menu* for a new design.`);
+  } catch (err) {
+    console.error('Text edit error:', err.message);
+    await sessionSvc.updateSession(session.id, { state: 'AWAITING_SHOUTOUT' });
+    await wa.sendText(phone, '❌ Something went wrong with the edit. Your original design is still saved -- type "edit text" to try again, or *menu* for a new design.');
   }
 }
 

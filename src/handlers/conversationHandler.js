@@ -144,8 +144,7 @@ const PHOTO_ROLES = {
     { role: 'baby_or_parents_photo', label: "a photo of the baby or parents", required: false },
   ],
   wedding: [
-    { role: 'bride_photo', label: "the bride's photo", required: false },
-    { role: 'groom_photo', label: "the groom's photo", required: false },
+    { role: 'couple_photo', label: "a photo of the couple together (both bride and groom in one image)", required: false },
   ],
   church: [
     { role: 'host_photo', label: "the host/pastor's photo", required: false },
@@ -371,7 +370,8 @@ async function handlePhotoUpload(phone, session, message) {
     const localPath = path.join(uploadDir, filename);
     fs.writeFileSync(localPath, buffer);
 
-    const publicUrl = `${process.env.APP_URL}/uploads/${filename}`;
+    const baseUrl = (process.env.APP_URL || '').replace(/\/+$/, '');
+    const publicUrl = `${baseUrl}/uploads/${filename}`;
 
     // Append to the existing photo arrays rather than overwriting
     const freshSession = await sessionSvc.getSessionById(session.id);
@@ -604,7 +604,8 @@ async function handlePaymentCheck(phone, session, message) {
 }
 
 async function generateAndSend(phone, session) {
-  await wa.sendText(phone, '🎨 Payment confirmed! Creating your unique meme now...\n\n_This takes about 15-30 seconds ✨_');
+  await wa.sendTyping(phone);
+  await wa.sendText(phone, '🎨 Payment confirmed! Creating your unique meme now...\n\n_This usually takes 1-3 minutes for premium quality ✨_');
   await sessionSvc.updateSession(session.id, { state: 'GENERATING' });
 
   try {
@@ -633,6 +634,25 @@ async function generateAndSend(phone, session) {
     );
 
     await wa.sendImage(phone, publicUrl, caption);
+
+    // Warm thank-you appreciation message -- dynamic based on category
+    const thankYouMessages = {
+      birthday: `🎂 Thank you for choosing NaijaMeme Bot to celebrate *${freshSession.celebrant_name || freshSession.recipient_name}*! We dey always ready to make your people feel special 🙏`,
+      wedding: `💍 Thank you for trusting us with this special moment! Wishing the couple a lifetime of joy and love 🙏✨`,
+      naming_ceremony: `👶 Thank you for letting us be part of this beautiful naming celebration! God bless the new arrival 🙏`,
+      church: `⛪ Thank you for choosing NaijaMeme Bot for your programme flyer! God bless your ministry 🙏🔥`,
+      business_advert: `📢 Thank you for your patronage! We dey always here to help your business shine 🙏💪`,
+      customer_appreciation: `⭐ Thank you for using NaijaMeme Bot to appreciate your customers! Na people like you dey make business sweet 🙏`,
+      political: `🗳️ Thank you for your patronage! We dey support your vision for a better community 🙏`,
+      academic: `🎓 Thank you for celebrating this achievement with us! Education na the key 🙏`,
+      thank_you: `🙏 Thank you for using NaijaMeme Bot! We glad say we fit help you show appreciation 💚`,
+      congratulations: `🎉 Thank you for celebrating with NaijaMeme Bot! We love to see our people win 💚`,
+      apology: `😔 Thank you for trusting us with something so personal. We hope it helps heal things 🙏`,
+      ask_money: `💸 Thank you for your patronage! We go dey here whenever you need us 😄`,
+      relationship: `💔 Thank you for using NaijaMeme Bot! We hope your shot lands 🎯😄`,
+    };
+    const thankYou = thankYouMessages[freshSession.category] || `🙏 Thank you for choosing NaijaMeme Bot! Your patronage means everything to us. Na you make us dey do this!`;
+    await wa.sendText(phone, thankYou);
 
     await sessionSvc.updateSession(session.id, {
       state: 'AWAITING_SHOUTOUT',

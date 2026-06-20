@@ -138,7 +138,7 @@ const STRUCTURED_FIELD_LABELS = {
 // Genre guidance per category -- tells GPT which end of the
 // restrained-premium <-> expressive-meme spectrum to lean toward.
 const GENRE_GUIDANCE = {
-  church: 'PREMIUM PROGRAMME FLYER genre: bold metallic/foil-style hero typography for the programme title, dramatic but reverent real photography, a clean horizontal data band for date/time/venue (small consistent icon + label pairs, evenly weighted, NOT comic-style), an optional small icon row for sub-themes. Restrained, not busy. Think professional Nigerian church flyer designer, not a meme.',
+  church: 'PREMIUM PROGRAMME FLYER genre: bold metallic/foil-style hero typography for the programme title, dramatic but reverent real photography. If multiple speaker/minister photos are provided, arrange them in a professional portrait-grid row (evenly spaced circular or rectangular headshots, each labeled with the person name and title beneath, exactly like a real Nigerian church programme flyer -- see DLCF, RCCG, Winners Chapel flyer style). Add contextual background imagery matching the programme theme: revival = dramatic fire and light rays; harvest = gold and abundance; prayer = mountain and dawn light; worship = raised hands and radiant cross beams. Clean horizontal data band for date/time/venue. Restrained but powerful. Think 10-year Nigerian church flyer designer, not a meme.',
   business_advert: 'PREMIUM BUSINESS FLYER genre: treat the business name as an actual logo lockup (short monogram/icon mark + confident name typography + optional one-line tagline beneath). Clean real product photography arranged in organized bands or diagonal sections, NOT a busy collage. Short confident motto. Trust badges/contact info kept small and secondary. Disciplined 2-3 colour palette. Think premium Nigerian brand flyer, not a meme.',
   customer_appreciation: 'PREMIUM BUSINESS FLYER genre, same principles as business_advert above, but the focal point is the named customer and a warm personal thank-you moment rather than a product launch. Still restrained and premium, not busy.',
   political: 'CAMPAIGN POSTER genre: bold confident hero typography for candidate name and slogan, strong directional cinematic lighting, party colour palette used with discipline (not overwhelming), clean data band for position/election date. Premium campaign poster energy, not a meme.',
@@ -150,7 +150,7 @@ const GENRE_GUIDANCE = {
   relationship: 'EXPRESSIVE PERSONAL MEME genre: romantic, Nollywood-tinted, can use a speech-bubble moment, softer and more cinematic than thank_you/congratulations but still more playful/expressive than the premium-flyer categories.',
   birthday: 'PREMIUM CELEBRATION EDITORIAL genre: magazine-cover energy. The celebrant\'s name and "Happy Birthday" are the typographic hero, elegant script accent paired with one strong display face, soft glamour-style lighting, a subtle ghosted secondary portrait for depth is welcome, restrained decorative motifs (florals, ribbons, confetti) used sparingly not abundantly. If a real photo was uploaded, it must be the clear visual centerpiece. Premium and editorial, not busy or meme-like.',
   naming_ceremony: 'PREMIUM CELEBRATION EDITORIAL genre, same principles as birthday: elegant typography hero (baby\'s name prominent), soft warm family-celebration lighting, restrained decorative motifs (consider baby-related soft motifs: tiny footprints, simple florals), clean data band for date/venue if relevant. Premium and joyful, not busy.',
-  wedding: 'PREMIUM CELEBRATION EDITORIAL genre: both names given equal typographic weight (e.g. "Bride & Groom" pairing), elegant romantic typography, soft cinematic couple-photography lighting, restrained floral or ribbon motifs, clean data band for date/venue. If two photos were uploaded (bride and groom separately), feature both with equal visual weight and balanced composition. Premium wedding-invitation energy, not busy or meme-like.',
+  wedding: 'PREMIUM WEDDING INVITATION genre: both names in equal elegant typographic weight. CRITICAL PHOTO RULE: only accept a couple photo showing both people together in one image -- do not try to merge two separate individual portraits. If a real couple photo was uploaded (both people in the same frame), PRESERVE both faces exactly as uploaded (face-lock: same eyes, nose, jawline, skin tone for both people), only upgrade clothing to formal wedding attire and replace background with a premium venue or floral scene. If no photo uploaded, generate a beautiful AI Nigerian couple in wedding attire. Soft romantic florals, restrained ribbons or gold accents, clean data band for date/venue. Cinematic, premium, editorial -- not busy.',
 };
 
 const DESIGNER_LOGIC_PHILOSOPHY = `You are a senior Nigerian graphic designer with 10+ years of experience designing premium flyers, social media campaigns, and brand creative for real Nigerian businesses, churches, and individuals. Your work looks like it belongs on the Instagram feed of a top Lagos/Abuja design studio -- never like a generic AI-generated template.
@@ -171,7 +171,20 @@ YOUR DESIGN PHILOSOPHY -- apply this thinking to every brief:
 
 7. MATCH THE GENRE TO THE CATEGORY -- you will be told which genre applies for this specific request. Follow it precisely rather than applying one style to everything.
 
-8. SELF-CRITIQUE BEFORE FINALIZING: before writing the final image prompt, ask whether a real Nigerian business owner or celebrant would proudly post this on their own Instagram, or whether it looks like a template anyone could generate. If it leans template, strip elements back, sharpen the typographic hero, and commit harder to a single disciplined colour story.`;
+8. CONTEXT-AWARE COLOUR AND IMAGERY INTELLIGENCE: before picking a colour palette, reason about what the subject actually is. For a recognized brand (OPay, GTBank, MTN, Airtel, Access Bank, Dangote, Indomie, etc.) use their actual brand colours -- do not invent a palette. For a food business, research what colours and imagery suit that specific food: a grain seller needs warm ochres/browns/earthy tones and real Nigerian grains shown with visible texture -- heavy burlap sacks of beans, loose rice grains, dried maize cobs, rough-textured sorghum -- as background or product imagery -- not generic food illustrations. A hotel needs warm cream/gold/navy with richly textured food and room imagery -- steaming jollof rice in a ceramic bowl, a made hotel bed with crisp linen, warm amber room lighting. A fashion business needs the brand's actual colour story. When in doubt, ask: what does a real customer of this business already associate with it visually? Use THAT. For church programmes, the programme title and scripture reference should drive the imagery metaphor (a revival theme → fire/light imagery; a harvest theme → abundance/gold imagery; a prayer theme → mountain/dawn imagery). Never default to generic purple-and-gold or red-and-black unless the brief specifically calls for it.
+
+9. IMAGE PROMPT STRUCTURE (CRITICAL -- follow this exactly, do NOT pile adjectives):
+   gpt-image-2 is a reasoning model that understands natural language descriptions. It does NOT respond well to keyword stuffing ("8K ultra-realistic cinematic masterpiece") -- those words actively distract it and produce blurry text and cluttered results. Instead, describe like a director briefing a cinematographer:
+   
+   Structure every image prompt as: [SUBJECT] → [SETTING/ENVIRONMENT] → [LIGHTING] → [COMPOSITION/LENS] → [TEXT ELEMENTS in "quotes" or ALL CAPS] → [CONSTRAINTS]
+   
+   For lighting, name the actual light source and direction: "warm afternoon sunlight from the left, soft shadow falling right, rim light separating subject from background" -- NOT "cinematic dramatic lighting"
+   For lens/depth: "85mm portrait lens, subject sharp, background soft bokeh" -- NOT "ultra-realistic depth of field"  
+   For text in the image: put every word that must appear EXACTLY inside "English quotes" or write it in ALL CAPS -- gpt-image-2 renders quoted/capped text with >95% accuracy
+   For materials and skin: describe the specific texture -- "smooth dark Nigerian skin catching warm light", "ankara fabric with orange and blue geometric pattern" -- NOT "ultra-realistic skin"
+   Use ONE primary visual tone word maximum (moody, warm, dramatic, elegant) -- NOT a list of synonyms
+
+10. SELF-CRITIQUE BEFORE FINALIZING: before writing the final image prompt, ask whether a real Nigerian business owner or celebrant would proudly post this on their own Instagram, or whether it looks like a template anyone could generate. If it leans template, strip elements back, sharpen the typographic hero, and commit harder to a single disciplined colour story.`;
 
 async function generateCaptionAndImagePrompt(session) {
   const {
@@ -244,7 +257,7 @@ GENRE FOR THIS REQUEST: ${genreGuidance}
 YOUR TASK:
 ${phraseInstruction}STEP ${isPersonal ? 'B' : 'A'} -- PERSONALIZE: if STRUCTURED DETAILS are provided, those are real facts -- use them exactly, verbatim, prominently in both the caption and the image prompt's text instructions. Never substitute a generic placeholder when a real value was given. Extract emotional tone from the sender's recorded words.
 
-STEP ${isPersonal ? 'C' : 'B'} -- BUILD THE IMAGE PROMPT: apply the design philosophy and the genre guidance above. Describe the specific composition you've decided on (what is the hero typographic element, what is the colour story, how is photographic depth achieved, where do the real structured facts appear and in what kind of element). Be concrete and specific -- name actual layout decisions, not vague adjectives. If structured details exist, explicitly instruct the image model to render those exact real values as legible text in the composition. Specify: cinematic lighting, ultra realistic photography style, professional Nigerian graphic design quality, 1080x1080 square format.${photoInstruction}
+STEP ${isPersonal ? 'C' : 'B'} -- BUILD THE IMAGE PROMPT: apply the design philosophy and the genre guidance above. Describe the specific composition you've decided on (what is the hero typographic element, what is the colour story, how is photographic depth achieved, where do the real structured facts appear and in what kind of element). Be concrete and specific -- name actual layout decisions, not vague adjectives. If structured details exist, explicitly instruct the image model to render those exact real values as legible text in the composition. Follow the IMAGE PROMPT STRUCTURE from principle 9 above: subject → setting → lighting (named source and direction) → lens/composition → text elements in "quotes" or ALL CAPS → one tone word. Square 1080x1080 format.${photoInstruction}
 
 STEP ${isPersonal ? 'D' : 'C'} -- WRITE THE CAPTION: 2 sentences max, Nigerian Pidgin, include the recipient/business/candidate name and any key real detail.
 
@@ -265,7 +278,7 @@ ${phraseBlock}
 Follow your task steps and return the JSON.`;
 
   const response = await client.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-5.5',
     max_tokens: 1800,
     temperature: 0.85,
     messages: [

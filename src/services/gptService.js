@@ -132,6 +132,7 @@ const STRUCTURED_FIELD_LABELS = {
     wedding_date: 'Date',
     wedding_venue: 'Venue',
     style_preference: 'Colour/style preference',
+    outfit_preference: 'Outfit preference (keep exact outfit vs upgrade to wedding attire)',
   },
 };
 
@@ -150,7 +151,7 @@ const GENRE_GUIDANCE = {
   relationship: 'EXPRESSIVE PERSONAL MEME genre: romantic, Nollywood-tinted, can use a speech-bubble moment, softer and more cinematic than thank_you/congratulations but still more playful/expressive than the premium-flyer categories.',
   birthday: 'PREMIUM CELEBRATION EDITORIAL genre: magazine-cover energy. The celebrant\'s name and "Happy Birthday" are the typographic hero, elegant script accent paired with one strong display face, soft glamour-style lighting, a subtle ghosted secondary portrait for depth is welcome, restrained decorative motifs (florals, ribbons, confetti) used sparingly not abundantly. If a real photo was uploaded, it must be the clear visual centerpiece. Premium and editorial, not busy or meme-like.',
   naming_ceremony: 'PREMIUM CELEBRATION EDITORIAL genre, same principles as birthday: elegant typography hero (baby\'s name prominent), soft warm family-celebration lighting, restrained decorative motifs (consider baby-related soft motifs: tiny footprints, simple florals), clean data band for date/venue if relevant. Premium and joyful, not busy.',
-  wedding: 'PREMIUM WEDDING INVITATION genre: both names in equal elegant typographic weight. CRITICAL PHOTO RULE: only accept a couple photo showing both people together in one image -- do not try to merge two separate individual portraits. If a real couple photo was uploaded (both people in the same frame), PRESERVE both faces exactly as uploaded (face-lock: same eyes, nose, jawline, skin tone for both people), only upgrade clothing to formal wedding attire and replace background with a premium venue or floral scene. If no photo uploaded, generate a beautiful AI Nigerian couple in wedding attire. Soft romantic florals, restrained ribbons or gold accents, clean data band for date/venue. Cinematic, premium, editorial -- not busy.',
+  wedding: 'PREMIUM WEDDING INVITATION genre: both names in equal elegant typographic weight. CRITICAL PHOTO RULE: only accept a couple photo showing both people together in one image -- do not try to merge two separate individual portraits. If a real couple photo was uploaded, PRESERVE both faces exactly as uploaded (face-lock: same eyes, nose, jawline, skin tone for both people) -- this is non-negotiable. CLOTHING RULE: check the "Outfit preference" structured detail -- if it says "keep outfits" or similar, PRESERVE the exact clothing from the photo unchanged, only replace the background/add design elements around them; if it says "upgrade to wedding attire" or similar (or if no preference given), upgrade clothing to formal wedding attire. If no photo uploaded, generate a beautiful AI Nigerian couple in wedding attire. Soft romantic florals, restrained ribbons or gold accents, clean data band for date/venue. Cinematic, premium, editorial -- not busy.',
 };
 
 const DESIGNER_LOGIC_PHILOSOPHY = `You are a senior Nigerian graphic designer with 10+ years of experience designing premium flyers, social media campaigns, and brand creative for real Nigerian businesses, churches, and individuals. Your work looks like it belongs on the Instagram feed of a top Lagos/Abuja design studio -- never like a generic AI-generated template.
@@ -171,7 +172,21 @@ YOUR DESIGN PHILOSOPHY -- apply this thinking to every brief:
 
 7. MATCH THE GENRE TO THE CATEGORY -- you will be told which genre applies for this specific request. Follow it precisely rather than applying one style to everything.
 
-8. CONTEXT-AWARE COLOUR AND IMAGERY INTELLIGENCE: before picking a colour palette, reason about what the subject actually is. For a recognized brand (OPay, GTBank, MTN, Airtel, Access Bank, Dangote, Indomie, etc.) use their actual brand colours -- do not invent a palette. For a food business, research what colours and imagery suit that specific food: a grain seller needs warm ochres/browns/earthy tones and real Nigerian grains shown with visible texture -- heavy burlap sacks of beans, loose rice grains, dried maize cobs, rough-textured sorghum -- as background or product imagery -- not generic food illustrations. A hotel needs warm cream/gold/navy with richly textured food and room imagery -- steaming jollof rice in a ceramic bowl, a made hotel bed with crisp linen, warm amber room lighting. A fashion business needs the brand's actual colour story. When in doubt, ask: what does a real customer of this business already associate with it visually? Use THAT. For church programmes, the programme title and scripture reference should drive the imagery metaphor (a revival theme → fire/light imagery; a harvest theme → abundance/gold imagery; a prayer theme → mountain/dawn imagery). Never default to generic purple-and-gold or red-and-black unless the brief specifically calls for it.
+8. CONTEXT-AWARE COLOUR AND IMAGERY INTELLIGENCE: before picking a colour palette, reason hard about what this specific business or subject actually is and what its real customers already associate with it visually -- do not default to a generic "premium navy and gold" palette for everything. If DESIGN RESEARCH CONTEXT is provided below (from a live web search), treat it as ground truth for what real designs in this category look like and follow its colour/layout conventions closely.
+
+   For a recognized brand (OPay = teal/turquoise and white, GTBank = orange and navy, MTN = bright yellow, Airtel = red, Access Bank = navy and orange, Dangote = blue and red, Indomie = red and yellow) use their actual brand colours -- never invent a palette for a known brand.
+
+   For category-specific imagery, reason like a specialist:
+   - Grain/food sellers: warm ochres and earthy browns, real grains with visible texture (burlap sacks, loose rice, dried maize, sorghum)
+   - Auto dealerships: sleek dark charcoal/black with electric blue or chrome accent, showroom lighting, reflective floors, the actual vehicle types being sold rendered with real automotive detail (not generic car silhouettes)
+   - Fashion/clothing: the brand's actual colour story, fabric texture close-ups, runway or boutique lighting
+   - Hotels/hospitality: warm cream/gold/navy, richly textured food and room imagery (steaming jollof in a ceramic bowl, crisp hotel linen, warm amber lighting)
+   - Electronics/phones/tech: clean minimal dark backgrounds, product photography lighting, sharp reflections
+   - Beauty/cosmetics: soft pastel or jewel tones, glowing skin lighting, elegant product arrangement
+   - Real estate/construction: structured navy/grey with gold accent, architectural photography style, blueprints or skyline imagery
+   - Logistics/transport: bold primary colours (blue/orange/red), dynamic motion lines, route/map imagery
+
+   For church programmes, the programme title and theme should drive the imagery metaphor (revival = fire/light; harvest = abundance/gold; prayer = mountain/dawn; worship = raised hands and radiant light). Never default to generic purple-and-gold unless the brief specifically calls for it.
 
 9. IMAGE PROMPT STRUCTURE (CRITICAL -- follow this exactly, do NOT pile adjectives):
    gpt-image-2 is a reasoning model that understands natural language descriptions. It does NOT respond well to keyword stuffing ("8K ultra-realistic cinematic masterpiece") -- those words actively distract it and produce blurry text and cluttered results. Instead, describe like a director briefing a cinematographer:
@@ -185,6 +200,45 @@ YOUR DESIGN PHILOSOPHY -- apply this thinking to every brief:
    Use ONE primary visual tone word maximum (moody, warm, dramatic, elegant) -- NOT a list of synonyms
 
 10. SELF-CRITIQUE BEFORE FINALIZING: before writing the final image prompt, ask whether a real Nigerian business owner or celebrant would proudly post this on their own Instagram, or whether it looks like a template anyone could generate. If it leans template, strip elements back, sharpen the typographic hero, and commit harder to a single disciplined colour story.`;
+
+// =============================================
+// DESIGN RESEARCH (Responses API + web_search tool)
+// Runs a quick live web search to ground GPT-5.5's design decisions
+// in what real Nigerian flyers/posters in this category actually look
+// like, instead of designing purely from memory. Non-fatal: if the
+// search fails or times out, generation proceeds without it rather
+// than blocking the user.
+// =============================================
+const RESEARCH_QUERY_MAP = {
+  church: (s) => `Nigerian church programme flyer design "${s.programme_title || 'revival'}" layout`,
+  business_advert: (s) => `Nigerian "${s.offer_product || 'business'}" advert flyer design layout colours`,
+  customer_appreciation: (s) => `Nigerian customer appreciation flyer design layout`,
+  political: (s) => `Nigerian political campaign poster design layout`,
+  birthday: (s) => `Nigerian premium birthday flyer design layout`,
+  wedding: (s) => `Nigerian wedding invitation flyer design layout`,
+  naming_ceremony: (s) => `Nigerian naming ceremony flyer design layout`,
+  academic: (s) => `Nigerian graduation achievement flyer design layout`,
+};
+
+async function researchDesignContext(category, session) {
+  const queryFn = RESEARCH_QUERY_MAP[category];
+  if (!queryFn) return '';
+
+  const query = queryFn(session);
+
+  try {
+    const response = await client.responses.create({
+      model: 'gpt-5.5',
+      tools: [{ type: 'web_search' }],
+      input: `Search for real examples of: ${query}. In under 120 words, describe: (1) typical colour palette and visual style for this specific category, (2) common layout conventions (where text/photos/data usually sit), (3) any Nigerian-specific design details worth matching. Be concrete and specific, not generic.`,
+    });
+
+    return response.output_text || '';
+  } catch (err) {
+    console.error('Design research web search failed (non-fatal):', err.message);
+    return '';
+  }
+}
 
 async function generateCaptionAndImagePrompt(session) {
   const {
@@ -204,6 +258,14 @@ async function generateCaptionAndImagePrompt(session) {
   }
 
   const isPersonal = PERSONAL_CATEGORIES.has(category);
+
+  // Run live design research for structured (non-personal) categories --
+  // grounds the design in what real Nigerian flyers actually look like.
+  // Skipped for personal/meme categories where it adds little value.
+  const researchContext = !isPersonal ? await researchDesignContext(category, session) : '';
+  const researchBlock = researchContext
+    ? `\nDESIGN RESEARCH CONTEXT (from a live web search of real Nigerian designs in this category -- use this to ground your colour and layout decisions):\n${researchContext}\n`
+    : '';
   const genreGuidance = GENRE_GUIDANCE[category] || GENRE_GUIDANCE.thank_you;
 
   // Build the structured-details block, if this category collects any
@@ -243,7 +305,19 @@ async function generateCaptionAndImagePrompt(session) {
   if (photoUrls.length === 1) {
     photoInstruction = `\nIMPORTANT: The user uploaded one real reference photo (of themselves, their pastor, candidate, or business logo) that will be used as a reference image during generation. Write the image prompt so it makes sense for that real photo to be incorporated as the featured person/logo -- do not describe a generic stand-in face if a real one will be composited in.`;
   } else if (photoUrls.length > 1) {
-    photoInstruction = `\nIMPORTANT: The user uploaded ${photoUrls.length} real reference photos (e.g. bride and groom, or host and guest minister) that will be used as reference images during generation. Write the image prompt to explicitly reference each by role and position -- for example "feature the person from reference image 1 on the left and the person from reference image 2 on the right, both with equal visual weight." Do not describe generic stand-in faces; describe how the real uploaded people should be composed together.`;
+    photoInstruction = `\nIMPORTANT: The user uploaded ${photoUrls.length} real reference photos that will be used as reference images during generation. gpt-image-2 needs EXACT positioning instructions for multi-person layouts, not vague placement -- be precise: state the exact arrangement (e.g. "evenly spaced horizontal row" or "left and right with equal scale"), the exact framing for each (e.g. "head-and-shoulders portrait, same crop height for all"), the exact eye-line alignment (e.g. "all faces aligned to the same horizontal eye-line"), and the exact scale relationship (e.g. "identical size, no one larger than another unless seniority is being shown"). Reference each photo by its number explicitly: "Reference Image 1 positioned [X], Reference Image 2 positioned [Y]." Restate that each face must be preserved exactly as uploaded. Do not describe generic stand-in faces.`;
+  }
+
+  // Universal outfit preference -- applies to ANY category where a real
+  // photo was uploaded and the user was asked keep-vs-upgrade. Read
+  // directly from session since this is no longer wedding-only.
+  if (photoUrls.length > 0 && session.outfit_preference) {
+    const pref = session.outfit_preference.toLowerCase();
+    if (pref.includes('keep')) {
+      photoInstruction += `\nOUTFIT RULE: the user asked to KEEP their exact outfit from the uploaded photo -- do NOT change clothing, do NOT upgrade attire. Only change the background and add design elements around the person exactly as they appear.`;
+    } else {
+      photoInstruction += `\nOUTFIT RULE: the user asked to UPGRADE the outfit to suit the flyer style -- replace clothing with attire appropriate for this design (formal wear, traditional wear, business attire, etc. as fits the genre) while keeping the face exactly preserved.`;
+    }
   }
 
   const phraseInstruction = isPersonal
@@ -253,6 +327,7 @@ async function generateCaptionAndImagePrompt(session) {
   const systemPrompt = `${DESIGNER_LOGIC_PHILOSOPHY}
 
 GENRE FOR THIS REQUEST: ${genreGuidance}
+${researchBlock}
 
 YOUR TASK:
 ${phraseInstruction}STEP ${isPersonal ? 'B' : 'A'} -- PERSONALIZE: if STRUCTURED DETAILS are provided, those are real facts -- use them exactly, verbatim, prominently in both the caption and the image prompt's text instructions. Never substitute a generic placeholder when a real value was given. Extract emotional tone from the sender's recorded words.
@@ -279,7 +354,8 @@ Follow your task steps and return the JSON.`;
 
   const response = await client.chat.completions.create({
     model: 'gpt-5.5',
-    max_completion_tokens: 1800,
+    max_tokens: 1800,
+    temperature: 0.85,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },

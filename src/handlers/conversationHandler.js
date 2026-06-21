@@ -394,7 +394,7 @@ async function handleLogoUpload(phone, session, message) {
 
   await wa.sendText(phone, '⏳ Got your logo! Saving it...');
   try {
-    await saveUploadedPhoto(phone, session.id, message);
+    await saveUploadedPhoto(phone, session.id, message, 'logo');
     await wa.sendText(phone, '✅ Logo saved!');
     return askForProductPhotos(phone, session.id, false);
   } catch (err) {
@@ -458,7 +458,7 @@ async function handleProductPhotoUpload(phone, session, message) {
 
   await wa.sendText(phone, '⏳ Got it! Saving...');
   try {
-    await saveUploadedPhoto(phone, session.id, message);
+    await saveUploadedPhoto(phone, session.id, message, 'product');
     await wa.sendText(phone, '✅ Photo saved!');
     const freshSession = await sessionSvc.getSessionById(session.id);
     return askForProductPhotos(phone, session.id, false);
@@ -470,7 +470,7 @@ async function handleProductPhotoUpload(phone, session, message) {
 
 // Shared upload-and-store logic used by both the logo upload and the
 // product photo loop, so the file-handling code isn't duplicated.
-async function saveUploadedPhoto(phone, sessionId, message) {
+async function saveUploadedPhoto(phone, sessionId, message, photoType = 'person') {
   const { buffer, mimeType } = await wa.downloadMedia(message.image.id);
 
   const ext = mimeType.includes('png') ? 'png' : 'jpg';
@@ -486,15 +486,19 @@ async function saveUploadedPhoto(phone, sessionId, message) {
   const freshSession = await sessionSvc.getSessionById(sessionId);
   let urls = [];
   let localPaths = [];
+  let types = [];
   try { urls = freshSession.photo_urls ? JSON.parse(freshSession.photo_urls) : []; } catch { urls = []; }
   try { localPaths = freshSession.photo_local_paths ? JSON.parse(freshSession.photo_local_paths) : []; } catch { localPaths = []; }
+  try { types = freshSession.photo_types ? JSON.parse(freshSession.photo_types) : []; } catch { types = []; }
 
   urls.push(publicUrl);
   localPaths.push(localPath);
+  types.push(photoType);
 
   await sessionSvc.updateSession(sessionId, {
     photo_urls: JSON.stringify(urls),
     photo_local_paths: JSON.stringify(localPaths),
+    photo_types: JSON.stringify(types),
     photo_upload_count: urls.length,
   });
 }
@@ -865,11 +869,20 @@ async function generateAndSend(phone, session, triggeringMessageId) {
       photoLocalPaths = [];
     }
 
+    let photoTypes = [];
+    try {
+      photoTypes = freshSession.photo_types ? JSON.parse(freshSession.photo_types) : [];
+    } catch {
+      photoTypes = [];
+    }
+
     const { publicUrl, localPath: generatedLocalPath } = await imageSvc.generateMemeImage({
       imagePrompt,
       recipientName: freshSession.recipient_name,
       category: freshSession.category,
       photoLocalPaths,
+      photoTypes,
+      outfitPreference: freshSession.outfit_preference,
     });
 
     await pool.query(

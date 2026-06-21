@@ -784,9 +784,10 @@ async function handleVoiceInput(phone, session, message) {
 
 async function triggerPayment(phone, session) {
   try {
-    const { paymentUrl, reference } = await paymentSvc.initializePayment({
+    const { paymentUrl, reference, amount } = await paymentSvc.initializePayment({
       phone,
       sessionId: session.id,
+      category: session.category,
     });
 
     await sessionSvc.updateSession(session.id, {
@@ -796,7 +797,7 @@ async function triggerPayment(phone, session) {
 
     await wa.sendText(
       phone,
-      `💳 *Almost there!*\n\nPay *₦500* to unlock your meme:\n\n${paymentUrl}\n\n_After payment, type *done* to confirm._`
+      `💳 *Almost there!*\n\nPay *₦${amount}* to unlock your meme:\n\n${paymentUrl}\n\n_After payment, type *done* to confirm._`
     );
   } catch (err) {
     console.error('Payment error:', err.message);
@@ -819,11 +820,19 @@ async function handlePaymentCheck(phone, session, message) {
     return wa.sendText(phone, '⚠️ Payment not confirmed yet. Complete payment then type *done*.');
   }
 
-  return generateAndSend(phone, session);
+  return generateAndSend(phone, session, message.id);
 }
 
-async function generateAndSend(phone, session) {
-  await wa.sendTyping(phone);
+async function generateAndSend(phone, session, triggeringMessageId) {
+  // Real WhatsApp typing indicator, shown via the markRead call against
+  // the message that triggered generation (e.g. user typing "done").
+  // Only available when called from a live WhatsApp message -- the
+  // payment webhook/callback routes call this without a message ID
+  // (server-to-server, no inbound message to attach the indicator to),
+  // so this is skipped gracefully in that case.
+  if (triggeringMessageId) {
+    await wa.markRead(triggeringMessageId, true);
+  }
   await wa.sendText(phone, '🎨 Payment confirmed! Creating your unique meme now...\n\n_This usually takes 1-3 minutes for premium quality ✨_');
   await sessionSvc.updateSession(session.id, { state: 'GENERATING' });
 

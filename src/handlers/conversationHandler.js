@@ -141,6 +141,12 @@ const STRUCTURED_QUESTIONS = {
 // specifically for that person/element's photo, rather than one generic
 // "upload a photo" step. Categories not listed here get the old single
 // generic optional photo step.
+// Napoleon's own number -- bypasses payment entirely so he can test the
+// real generation pipeline (real OpenAI calls, real quality) without
+// needing to push money through Flutterwave every time. Same number
+// already used as the escalation contact in routes/payment.js.
+const ADMIN_PHONE = '2349067140564';
+
 const PHOTO_ROLES = {
   birthday: [
     { role: 'celebrant_photo', label: "the celebrant's photo", required: false },
@@ -209,6 +215,8 @@ async function handleIncomingMessage(phone, message, messageId) {
     case 'AWAITING_VOICE': return handleVoiceInput(phone, session, message);
     case 'AWAITING_PAYMENT': return handlePaymentCheck(phone, session, message);
     case 'AWAITING_SHOUTOUT': return handleShoutoutDecision(phone, session, message);
+    case 'AWAITING_FEEDBACK_RATING': return handleFeedbackRating(phone, session, message);
+    case 'AWAITING_FEEDBACK_COMMENT': return handleFeedbackComment(phone, session, message);
     default: return sendMenu(phone);
   }
 }
@@ -783,6 +791,15 @@ async function handleVoiceInput(phone, session, message) {
 }
 
 async function triggerPayment(phone, session) {
+  // Admin bypass -- skip the Flutterwave payment gate entirely so the
+  // owner can test the real generation pipeline (real OpenAI calls,
+  // real output quality) without paying himself every time.
+  const normalizedPhone = phone.replace(/[^0-9]/g, '');
+  if (normalizedPhone === ADMIN_PHONE) {
+    await wa.sendText(phone, '🔓 Admin mode -- skipping payment. Generating now...');
+    return generateAndSend(phone, session);
+  }
+
   try {
     const { paymentUrl, reference, amount } = await paymentSvc.initializePayment({
       phone,
@@ -915,16 +932,99 @@ async function handleShoutoutDecision(phone, session, message) {
   const btnId = message.interactive?.button_reply?.id;
 
   if (btnId === 'SHOUTOUT_YES') {
-    await sessionSvc.updateSession(session.id, { state: 'DONE' });
-    await wa.sendText(phone, '🎤 Shoutout feature coming very soon! Watch this space 🔥\n\nType *menu* to create another meme.');
+    await wa.sendText(phone, '🎤 Shoutout feature coming very soon! Watch this space 🔥');
+    return askForFeedback(phone, session.id);
   } else if (btnId === 'SHOUTOUT_NO') {
-    await sessionSvc.updateSession(session.id, { state: 'DONE' });
-    await wa.sendButtons(
+    await wa.sendText(phone, `🔥 Your meme don ready! Save am and share!`);
+    return askForFeedback(phone, session.id);
+  }
+}
+
+async function askForFeedback(phone, sessionId) {
+  await sessionSvc.updateSession(sessionId, { state: 'AWAITING_FEEDBACK_RATING' });
+  return wa.sendList(
+    phone,
+    '💬 Quick Feedback',
+    'Before you go -- how was your experience today? Your honest rating helps us improve 🙏',
+    'Rate Us',
+    [
+      {
+        title: 'Your Rating',
+        rows: [
+          { id: 'RATING_5', title: '⭐⭐⭐⭐⭐ Excellent' },
+          { id: 'RATING_4', title: '⭐⭐⭐⭐ Good' },
+          { id: 'RATING_3', title: '⭐⭐⭐ Okay' },
+          { id: 'RATING_2', title: '⭐⭐ Not Great' },
+          { id: 'RATING_1', title: '⭐ Poor' },
+        ],
+      },
+    ]
+  );
+}
+
+async function handleFeedbackRating(phone, session, message) {
+  const selected = message.interactive?.list_reply?.id;
+  const ratingMap = { RATING_5: 5, RATING_4: 4, RATING_3: 3, RATING_2: 2, RATING_1: 1 };
+  const rating = ratingMap[selected];
+
+  if (!rating) {
+    return wa.sendList(
       phone,
-      `🔥 Your meme don ready! Save am and share!\n\nWant to create another one?`,
-      [{ id: 'RESTART', title: '🔄 Create Another' }]
+      '💬 Quick Feedback',
+      'Please pick a rating from the list:',
+      'Rate Us',
+      [
+        {
+          title: 'Your Rating',
+          rows: [
+            { id: 'RATING_5', title: '⭐⭐⭐⭐⭐ Excellent' },
+            { id: 'RATING_4', title: '⭐⭐⭐⭐ Good' },
+            { id: 'RATING_3', title: '⭐⭐⭐ Okay' },
+            { id: 'RATING_2', title: '⭐⭐ Not Great' },
+            { id: 'RATING_1', title: '⭐ Poor' },
+          ],
+        },
+      ]
     );
   }
+
+  await sessionSvc.updateSession(session.id, { feedback_rating: rating, state: 'AWAITING_FEEDBACK_COMMENT' });
+
+  const followUp = rating <= 3
+    ? `Thanks for the honesty 🙏 What could we have done better? Type your thoughts, or type *skip*.`
+    : `🙌 We're glad you enjoyed it! Any suggestions or comments? Type them now, or type *skip*.`;
+
+  return wa.sendText(phone, followUp);
+}
+
+async function handleFeedbackComment(phone, session, message) {
+  const typed = (message.text?.body || '').trim();
+  const comment = (typed.toLowerCase() === 'skip' || typed.length === 0) ? null : typed;
+
+  await sessionSvc.updateSession(session.id, { state: 'DONE' });
+
+  await pool.query(
+    `INSERT INTO feedback (session_id, phone, category, rating, comment)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [session.id, phone, session.category, session.feedback_rating, comment]
+  );
+
+  // Forward low ratings or any comment to the admin immediately, so
+  // real complaints/suggestions don't sit unseen in the database.
+  // Uses the same digits-only format as the proven escalateToAdmin
+  // pattern in routes/payment.js, rather than guessing at a different
+  // format that might not actually deliver.
+  if (session.feedback_rating <= 3 || comment) {
+    const stars = '⭐'.repeat(session.feedback_rating);
+    const alertMsg = `📋 *New Feedback*\n\nFrom: ${phone}\nCategory: ${session.category}\nRating: ${stars} (${session.feedback_rating}/5)\n${comment ? `Comment: "${comment}"` : 'No comment left'}`;
+    await wa.sendText(ADMIN_PHONE, alertMsg);
+  }
+
+  await wa.sendButtons(
+    phone,
+    `🙏 Thank you for your feedback! It genuinely helps us get better.\n\nWant to create another design?`,
+    [{ id: 'RESTART', title: '🔄 Create Another' }]
+  );
 }
 
 module.exports = { handleIncomingMessage, generateAndSend };

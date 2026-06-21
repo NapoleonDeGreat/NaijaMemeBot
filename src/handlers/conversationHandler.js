@@ -75,6 +75,7 @@ const SKIP_GENERIC_NAME_TAIL = new Set([
 // Ordered list of structured questions per category.
 const STRUCTURED_QUESTIONS = {
   church: [
+    { field: 'event_subtype', prompt: 'What *kind of church programme* is this?\n\n_(e.g. revival, bible study, prayer programme, crusade, family programme, convention, concert -- or describe it in your own words)_' },
     { field: 'church_name', prompt: 'What is the *name of the church*?' },
     { field: 'programme_title', prompt: 'What is the *programme title*?\n\n_(e.g. Revival Worship Experience)_' },
     { field: 'theme', prompt: 'What is the *theme* of the programme?\n\n_(e.g. A Call For Revival)_' },
@@ -85,18 +86,22 @@ const STRUCTURED_QUESTIONS = {
     { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(e.g. "gold and white", "keep it simple", or type "skip" and we\'ll pick something premium for you)_' },
   ],
   business_advert: [
+    { field: 'event_subtype', prompt: 'What *kind of business promotion* is this?\n\n_(e.g. new product launch, discount/sale, restaurant, fashion, beauty, healthcare, school -- or describe it in your own words)_' },
     { field: 'business_name', prompt: 'What is the *name of your business*?' },
     { field: 'offer_product', prompt: 'What *product, service, or offer* are you advertising?' },
-    { field: 'contact_info', prompt: 'What *contact info* should we show?\n\n_(phone number, WhatsApp, or social handle)_' },
+    { field: 'positioning', prompt: 'How would you describe your business?\n\n_(e.g. "luxury/premium", "affordable/budget", "mid-range" -- this helps us match the right look and feel)_' },
+    { field: 'contact_info', prompt: 'What *contact info* should we show?\n\n_(you can list all of them -- phone, WhatsApp, TikTok, Instagram, address, etc.)_' },
     { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(e.g. "navy and gold, minimal", "bright and bold", or type "skip" and we\'ll pick something premium for you)_' },
   ],
   customer_appreciation: [
     { field: 'business_name', prompt: 'What is the *name of your business*?' },
     { field: 'offer_product', prompt: 'What is this customer being appreciated for?\n\n_(e.g. 1 year loyalty, referring new customers, 5-star review)_' },
-    { field: 'contact_info', prompt: 'What *contact info* should we show?\n\n_(phone number, WhatsApp, or social handle -- type "none" to skip)_' },
+    { field: 'positioning', prompt: 'How would you describe your business?\n\n_(e.g. "luxury/premium", "affordable/budget", "mid-range" -- this helps us match the right look and feel)_' },
+    { field: 'contact_info', prompt: 'What *contact info* should we show?\n\n_(you can list all of them -- phone, WhatsApp, TikTok, Instagram, address, etc. -- or type "none" to skip)_' },
     { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(or type "skip" and we\'ll pick something premium for you)_' },
   ],
   political: [
+    { field: 'event_subtype', prompt: 'What *kind of political design* is this?\n\n_(e.g. campaign poster, rally flyer, election promotion, community outreach -- or describe it in your own words)_' },
     { field: 'candidate_name', prompt: 'What is the *candidate\'s name*?' },
     { field: 'position_title', prompt: 'What *position* are they contesting for?\n\n_(e.g. Local Government Chairman)_' },
     { field: 'party_slogan', prompt: 'What is the *party name and/or campaign slogan*?' },
@@ -192,6 +197,10 @@ async function handleIncomingMessage(phone, message, messageId) {
     case 'STRUCTURED_QA': return handleStructuredAnswer(phone, session, message);
     case 'AWAITING_PHOTO_DECISION': return handlePhotoDecision(phone, session, message);
     case 'AWAITING_PHOTO_UPLOAD': return handlePhotoUpload(phone, session, message);
+    case 'AWAITING_LOGO_DECISION': return handleLogoDecision(phone, session, message);
+    case 'AWAITING_LOGO_UPLOAD': return handleLogoUpload(phone, session, message);
+    case 'AWAITING_PRODUCT_PHOTO_DECISION': return handleProductPhotoDecision(phone, session, message);
+    case 'AWAITING_PRODUCT_PHOTO_UPLOAD': return handleProductPhotoUpload(phone, session, message);
     case 'AWAITING_OUTFIT_PREFERENCE': return handleOutfitPreference(phone, session, message);
     case 'CATEGORY_SELECTED': return handleRecipientName(phone, session, message);
     case 'RECIPIENT_NAME': return handleGender(phone, session, message);
@@ -200,7 +209,6 @@ async function handleIncomingMessage(phone, message, messageId) {
     case 'AWAITING_VOICE': return handleVoiceInput(phone, session, message);
     case 'AWAITING_PAYMENT': return handlePaymentCheck(phone, session, message);
     case 'AWAITING_SHOUTOUT': return handleShoutoutDecision(phone, session, message);
-    case 'AWAITING_TEXT_EDIT': return handleTextEdit(phone, session, message);
     default: return sendMenu(phone);
   }
 }
@@ -313,6 +321,23 @@ async function handleStructuredAnswer(phone, session, message) {
 
 async function startPhotoFlow(phone, sessionId) {
   const freshSession = await sessionSvc.getSessionById(sessionId);
+
+  // business_advert gets its own flow: logo first, then a flexible
+  // "add another product photo?" loop, since product counts vary
+  // wildly (1 logo only vs a 6-item gallery) unlike fixed-role
+  // categories like wedding (always couple) or church (host+guest).
+  if (freshSession.category === 'business_advert') {
+    await sessionSvc.updateSession(sessionId, { state: 'AWAITING_LOGO_DECISION' });
+    return wa.sendButtons(
+      phone,
+      `✅ Got all the details!\n\nDo you have a *business logo* to upload? If you don't have one yet, we'll create a simple one for your design.`,
+      [
+        { id: 'LOGO_YES', title: '🖼️ Upload Logo' },
+        { id: 'LOGO_SKIP', title: '✨ Create One For Me' },
+      ]
+    );
+  }
+
   const roles = getPhotoRoles(freshSession.category);
 
   await sessionSvc.updateSession(sessionId, {
@@ -329,6 +354,141 @@ async function startPhotoFlow(phone, sessionId) {
       { id: 'PHOTO_SKIP', title: '⏭️ Skip' },
     ]
   );
+}
+
+async function handleLogoDecision(phone, session, message) {
+  const btnId = message.interactive?.button_reply?.id;
+
+  if (btnId === 'LOGO_YES') {
+    await sessionSvc.updateSession(session.id, { state: 'AWAITING_LOGO_UPLOAD' });
+    return wa.sendText(phone, '🖼️ Send your business logo now as an image.');
+  }
+
+  if (btnId === 'LOGO_SKIP') {
+    await sessionSvc.updateSession(session.id, { has_no_logo: true });
+    return askForProductPhotos(phone, session.id, true);
+  }
+
+  return wa.sendButtons(
+    phone,
+    'Please choose an option:',
+    [
+      { id: 'LOGO_YES', title: '🖼️ Upload Logo' },
+      { id: 'LOGO_SKIP', title: '✨ Create One For Me' },
+    ]
+  );
+}
+
+async function handleLogoUpload(phone, session, message) {
+  if (message.type !== 'image') {
+    return wa.sendText(phone, '⚠️ Please send your logo as an image, or type *skip* to let us create one.');
+  }
+
+  await wa.sendText(phone, '⏳ Got your logo! Saving it...');
+  try {
+    await saveUploadedPhoto(phone, session.id, message);
+    await wa.sendText(phone, '✅ Logo saved!');
+    return askForProductPhotos(phone, session.id, false);
+  } catch (err) {
+    console.error('Logo upload error:', err.message);
+    return wa.sendText(phone, '⚠️ Could not save that logo. Type *skip* to continue, or try sending it again.');
+  }
+}
+
+async function askForProductPhotos(phone, sessionId, isFirstAsk) {
+  await sessionSvc.updateSession(sessionId, { state: 'AWAITING_PRODUCT_PHOTO_DECISION' });
+  const prompt = isFirstAsk
+    ? `No wahala! Now -- want to upload *product or shop photos*? You can add up to 6 to show off your range.`
+    : `Want to add *another product photo*? You can add up to 6 total.`;
+  return wa.sendButtons(
+    phone,
+    prompt,
+    [
+      { id: 'PRODUCT_PHOTO_YES', title: '📸 Add Photo' },
+      { id: 'PRODUCT_PHOTO_DONE', title: '✅ Done Adding' },
+    ]
+  );
+}
+
+async function handleProductPhotoDecision(phone, session, message) {
+  const btnId = message.interactive?.button_reply?.id;
+
+  if (btnId === 'PRODUCT_PHOTO_YES') {
+    let currentCount = 0;
+    try {
+      const urls = session.photo_urls ? JSON.parse(session.photo_urls) : [];
+      currentCount = urls.length;
+    } catch {
+      currentCount = 0;
+    }
+    if (currentCount >= 6) {
+      await wa.sendText(phone, "That's 6 photos already, the max for one design! Moving on...");
+      return proceedPastPhotos(phone, session.id);
+    }
+    await sessionSvc.updateSession(session.id, { state: 'AWAITING_PRODUCT_PHOTO_UPLOAD' });
+    return wa.sendText(phone, '📸 Send the product/shop photo now as an image.');
+  }
+
+  if (btnId === 'PRODUCT_PHOTO_DONE') {
+    return proceedPastPhotos(phone, session.id);
+  }
+
+  return wa.sendButtons(
+    phone,
+    'Please choose an option:',
+    [
+      { id: 'PRODUCT_PHOTO_YES', title: '📸 Add Photo' },
+      { id: 'PRODUCT_PHOTO_DONE', title: '✅ Done Adding' },
+    ]
+  );
+}
+
+async function handleProductPhotoUpload(phone, session, message) {
+  if (message.type !== 'image') {
+    return wa.sendText(phone, '⚠️ Please send a photo as an image, or type *skip* to move on.');
+  }
+
+  await wa.sendText(phone, '⏳ Got it! Saving...');
+  try {
+    await saveUploadedPhoto(phone, session.id, message);
+    await wa.sendText(phone, '✅ Photo saved!');
+    const freshSession = await sessionSvc.getSessionById(session.id);
+    return askForProductPhotos(phone, session.id, false);
+  } catch (err) {
+    console.error('Product photo upload error:', err.message);
+    return wa.sendText(phone, '⚠️ Could not save that photo. Try sending it again, or type *skip*.');
+  }
+}
+
+// Shared upload-and-store logic used by both the logo upload and the
+// product photo loop, so the file-handling code isn't duplicated.
+async function saveUploadedPhoto(phone, sessionId, message) {
+  const { buffer, mimeType } = await wa.downloadMedia(message.image.id);
+
+  const ext = mimeType.includes('png') ? 'png' : 'jpg';
+  const filename = `upload_${uuidv4()}.${ext}`;
+  const uploadDir = path.join(__dirname, '../../public/uploads');
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+  const localPath = path.join(uploadDir, filename);
+  fs.writeFileSync(localPath, buffer);
+
+  const baseUrl = (process.env.APP_URL || '').replace(/\/+$/, '');
+  const publicUrl = `${baseUrl}/uploads/${filename}`;
+
+  const freshSession = await sessionSvc.getSessionById(sessionId);
+  let urls = [];
+  let localPaths = [];
+  try { urls = freshSession.photo_urls ? JSON.parse(freshSession.photo_urls) : []; } catch { urls = []; }
+  try { localPaths = freshSession.photo_local_paths ? JSON.parse(freshSession.photo_local_paths) : []; } catch { localPaths = []; }
+
+  urls.push(publicUrl);
+  localPaths.push(localPath);
+
+  await sessionSvc.updateSession(sessionId, {
+    photo_urls: JSON.stringify(urls),
+    photo_local_paths: JSON.stringify(localPaths),
+    photo_upload_count: urls.length,
+  });
 }
 
 async function handlePhotoDecision(phone, session, message) {
@@ -694,23 +854,25 @@ async function generateAndSend(phone, session) {
 
     await wa.sendImage(phone, publicUrl, caption);
 
-    // Warm thank-you appreciation message -- dynamic based on category
+    // Warm, genuinely personal closing message -- speaks to what the
+    // person just created and why it matters, not generic "thank you
+    // for using our bot" corporate gratitude.
     const thankYouMessages = {
-      birthday: `🎂 Thank you for choosing NaijaMeme Bot to celebrate *${freshSession.celebrant_name || freshSession.recipient_name}*! We dey always ready to make your people feel special 🙏`,
-      wedding: `💍 Thank you for trusting us with this special moment! Wishing the couple a lifetime of joy and love 🙏✨`,
-      naming_ceremony: `👶 Thank you for letting us be part of this beautiful naming celebration! God bless the new arrival 🙏`,
-      church: `⛪ Thank you for choosing NaijaMeme Bot for your programme flyer! God bless your ministry 🙏🔥`,
-      business_advert: `📢 Thank you for your patronage! We dey always here to help your business shine 🙏💪`,
-      customer_appreciation: `⭐ Thank you for using NaijaMeme Bot to appreciate your customers! Na people like you dey make business sweet 🙏`,
-      political: `🗳️ Thank you for your patronage! We dey support your vision for a better community 🙏`,
-      academic: `🎓 Thank you for celebrating this achievement with us! Education na the key 🙏`,
-      thank_you: `🙏 Thank you for using NaijaMeme Bot! We glad say we fit help you show appreciation 💚`,
-      congratulations: `🎉 Thank you for celebrating with NaijaMeme Bot! We love to see our people win 💚`,
-      apology: `😔 Thank you for trusting us with something so personal. We hope it helps heal things 🙏`,
-      ask_money: `💸 Thank you for your patronage! We go dey here whenever you need us 😄`,
-      relationship: `💔 Thank you for using NaijaMeme Bot! We hope your shot lands 🎯😄`,
+      birthday: `🎂 *${freshSession.celebrant_name || freshSession.recipient_name}* go smile well well when dem see this -- you don show say you care. That na the real gift sometimes, not the card, na the thought wey dey behind am. Enjoy the celebration! 🙏✨`,
+      wedding: `💍 Una don create something beautiful to mark this love story. Years from now, una go still dey look back on this moment. We honoured say you choose us to be part of am 🙏✨`,
+      naming_ceremony: `👶 A new name, a new life, a new beginning -- and you don capture am beautifully. God bless this child and everyone wey go gather to celebrate am 🙏`,
+      church: `⛪ This na more than a flyer -- na an invitation for people to encounter God. We pray say many souls go answer this call and your ministry go grow more more 🙏🔥`,
+      business_advert: `📢 Your business just got a piece wey go make people stop and look. Every great brand started small -- this na one more step toward the business you dey build. We dey root for you 💪🙏`,
+      customer_appreciation: `⭐ The customer wey go see this go feel am for their heart. Loyalty no dey cheap -- and the fact say you took time to celebrate them go mean everything. Na people like you dey build real businesses 🙏`,
+      political: `🗳️ Leadership start with people seeing your vision clearly -- and now they fit see am. We dey hope say this go carry your message far and touch the hearts wey need to hear am 🙏`,
+      academic: `🎓 All the late nights, the hard work, the sacrifice -- e don pay off, and now the world fit see am too. This moment na yours, celebrate am well 🙏✨`,
+      thank_you: `🙏 Sometimes the people wey deserve appreciation no dey hear am enough. You just made sure that wasn't the case today. That kindness go reach them well 💚`,
+      congratulations: `🎉 Every win deserve to be celebrated loud -- and now it is. May this just be the beginning of many more testimonies for them 💚`,
+      apology: `😔 It take courage to say sorry well. Whatever happen, we hope say this opens the door for healing and understanding. Things fit still work out 🙏`,
+      ask_money: `💸 Asking for help no easy, but you don put am out there in a way wey go land soft. We dey hope say everything works out for you 😄🙏`,
+      relationship: `💔 You don shoot your shot -- and that already take guts. Whatever happens next, at least they go know exactly how you feel. We dey root for you 🎯😄`,
     };
-    const thankYou = thankYouMessages[freshSession.category] || `🙏 Thank you for choosing NaijaMeme Bot! Your patronage means everything to us. Na you make us dey do this!`;
+    const thankYou = thankYouMessages[freshSession.category] || `🙏 We're genuinely glad we could help bring this to life for you. Every design we make is for a real moment in someone's life -- thank you for letting this be one of them.`;
     await wa.sendText(phone, thankYou);
 
     await sessionSvc.updateSession(session.id, {
@@ -732,11 +894,6 @@ async function generateAndSend(phone, session) {
         { id: 'SHOUTOUT_NO', title: '✅ No, Am Good' },
       ]
     );
-
-    await wa.sendText(
-      phone,
-      `✏️ Need to fix the *text* on this design? Just type "*edit text*" and tell us what to change -- we'll keep the same design and photo, just update the words.`
-    );
   } catch (err) {
     console.error('Generation error:', err.message);
     console.error('Generation error FULL DETAIL:', JSON.stringify(err.error || err.response?.data || err, Object.getOwnPropertyNames(err)));
@@ -747,15 +904,6 @@ async function generateAndSend(phone, session) {
 
 async function handleShoutoutDecision(phone, session, message) {
   const btnId = message.interactive?.button_reply?.id;
-  const typedText = (message.text?.body || '').trim().toLowerCase();
-
-  if (typedText.startsWith('edit text') || typedText === 'edit') {
-    await sessionSvc.updateSession(session.id, { state: 'AWAITING_TEXT_EDIT' });
-    return wa.sendText(
-      phone,
-      `✏️ No wahala! Type out the new text exactly as you want it to appear -- for example: "change the date to 5th August" or "fix the name to Chioma Eze".`
-    );
-  }
 
   if (btnId === 'SHOUTOUT_YES') {
     await sessionSvc.updateSession(session.id, { state: 'DONE' });
@@ -767,41 +915,6 @@ async function handleShoutoutDecision(phone, session, message) {
       `🔥 Your meme don ready! Save am and share!\n\nWant to create another one?`,
       [{ id: 'RESTART', title: '🔄 Create Another' }]
     );
-  }
-}
-
-async function handleTextEdit(phone, session, message) {
-  const editRequest = message.text?.body?.trim();
-  if (!editRequest || editRequest.length < 3) {
-    return wa.sendText(phone, '⚠️ Please describe what text to change, e.g. "change the date to 5th August".');
-  }
-
-  if (!session.generated_image_local_path || !fs.existsSync(session.generated_image_local_path)) {
-    await sessionSvc.updateSession(session.id, { state: 'DONE' });
-    return wa.sendText(phone, '⚠️ Sorry, the original design is no longer available to edit. Type *menu* to create a new one.');
-  }
-
-  await wa.sendTyping(phone);
-  await wa.sendText(phone, '✏️ Updating your text now, keeping everything else the same... ✨');
-
-  try {
-    const result = await imageSvc.editGeneratedImageText({
-      originalLocalPath: session.generated_image_local_path,
-      editRequest,
-    });
-
-    await sessionSvc.updateSession(session.id, {
-      generated_image_url: result.publicUrl,
-      generated_image_local_path: result.localPath,
-      state: 'AWAITING_SHOUTOUT',
-    });
-
-    await wa.sendImage(phone, result.publicUrl, 'Updated! ✅');
-    await wa.sendText(phone, `✅ Updated! Need another text change? Type "edit text" again, or type *menu* for a new design.`);
-  } catch (err) {
-    console.error('Text edit error:', err.message);
-    await sessionSvc.updateSession(session.id, { state: 'AWAITING_SHOUTOUT' });
-    await wa.sendText(phone, '❌ Something went wrong with the edit. Your original design is still saved -- type "edit text" to try again, or *menu* for a new design.');
   }
 }
 

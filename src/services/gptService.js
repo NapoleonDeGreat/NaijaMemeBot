@@ -409,8 +409,7 @@ Follow your task steps and return the JSON.`;
 
   const response = await client.chat.completions.create({
     model: 'gpt-5.5',
-    max_tokens: 1800,
-    temperature: 0.85,
+    max_completion_tokens: 1800,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },

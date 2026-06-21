@@ -78,6 +78,7 @@ const PERSONAL_CATEGORIES = new Set([
 // columns added in migration.sql.
 const STRUCTURED_FIELD_LABELS = {
   church: {
+    event_subtype: 'Type of church programme (e.g. revival, bible study, prayer, crusade, family programme, convention)',
     church_name: 'Church name',
     programme_title: 'Programme title',
     theme: 'Theme',
@@ -88,18 +89,22 @@ const STRUCTURED_FIELD_LABELS = {
     style_preference: 'Colour/style preference',
   },
   business_advert: {
+    event_subtype: 'Type of business promotion (e.g. product launch, discount/sale, restaurant, fashion, beauty, healthcare, school)',
     business_name: 'Business name',
     offer_product: 'Offer/Product',
+    positioning: 'Business positioning (luxury/budget/mid-range)',
     contact_info: 'Contact info',
     style_preference: 'Colour/style preference',
   },
   customer_appreciation: {
     business_name: 'Business name',
     offer_product: 'What the customer is being appreciated for',
+    positioning: 'Business positioning (luxury/budget/mid-range)',
     contact_info: 'Contact info',
     style_preference: 'Colour/style preference',
   },
   political: {
+    event_subtype: 'Type of political design (e.g. campaign poster, rally flyer, election promotion, community outreach)',
     candidate_name: 'Candidate name',
     position_title: 'Position contesting for',
     party_slogan: 'Party/Slogan',
@@ -139,10 +144,10 @@ const STRUCTURED_FIELD_LABELS = {
 // Genre guidance per category -- tells GPT which end of the
 // restrained-premium <-> expressive-meme spectrum to lean toward.
 const GENRE_GUIDANCE = {
-  church: 'PREMIUM PROGRAMME FLYER genre: bold metallic/foil-style hero typography for the programme title, dramatic but reverent real photography. If multiple speaker/minister photos are provided, arrange them in a professional portrait-grid row (evenly spaced circular or rectangular headshots, each labeled with the person name and title beneath, exactly like a real Nigerian church programme flyer -- see DLCF, RCCG, Winners Chapel flyer style). Add contextual background imagery matching the programme theme: revival = dramatic fire and light rays; harvest = gold and abundance; prayer = mountain and dawn light; worship = raised hands and radiant cross beams. Clean horizontal data band for date/time/venue. Restrained but powerful. Think 10-year Nigerian church flyer designer, not a meme.',
-  business_advert: 'PREMIUM BUSINESS FLYER genre: treat the business name as an actual logo lockup (short monogram/icon mark + confident name typography + optional one-line tagline beneath). Clean real product photography arranged in organized bands or diagonal sections, NOT a busy collage. Short confident motto. Trust badges/contact info kept small and secondary. Disciplined 2-3 colour palette. Think premium Nigerian brand flyer, not a meme.',
+  church: 'PREMIUM PROGRAMME FLYER genre: bold metallic/foil-style hero typography for the programme title, dramatic but reverent real photography. If multiple speaker/minister photos are provided, arrange them in a professional portrait-grid row (evenly spaced circular or rectangular headshots, each labeled with the person name and title beneath, exactly like a real Nigerian church programme flyer -- see DLCF, RCCG, Winners Chapel flyer style). If a "Type of church programme" structured detail is provided (revival, bible study, prayer programme, crusade, family programme, convention, concert, etc.), let it drive the imagery metaphor and emotional tone specifically: revival = dramatic fire and light rays, urgent spiritual energy; bible study = warm intimate study setting, open Bible, focused calm; prayer programme = mountain and dawn light, quiet intensity; crusade = large outdoor crowd, powerful light beams, evangelistic energy; family programme = warm multigenerational imagery, soft joyful tone; convention = grand assembly hall energy, scale and unity; concert = dynamic stage lighting, worship crowd with raised hands. If no subtype given, default to general worship imagery (raised hands, radiant cross beams). Clean horizontal data band for date/time/venue. Restrained but powerful. Think 10-year Nigerian church flyer designer, not a meme.',
+  business_advert: 'PREMIUM BUSINESS FLYER genre: treat the business name as an actual logo lockup (short monogram/icon mark + confident name typography + optional one-line tagline beneath). Clean real product photography arranged in organized bands or diagonal sections, NOT a busy collage. Short confident motto. Trust badges/contact info kept small and secondary. Disciplined 2-3 colour palette. If a "Type of business promotion" structured detail is provided, let it sharpen the visual approach: restaurant = appetizing food photography with steam/warmth; fashion = runway or boutique styling with fabric texture close-ups; beauty = soft glowing skin lighting and elegant product arrangement; healthcare = clean clinical trust-building imagery with soft blues/whites; school = bright optimistic imagery with students/learning environment; discount/sale = bold urgency typography with a clear price/percentage callout; product launch = hero product shot with dramatic spotlight. POSITIONING RULE: check the "Business positioning" structured detail -- "luxury/premium" means restrained elegant typography, generous negative space, muted sophisticated palette (jewel tones, metallics used sparingly), high-end editorial photography feel; "budget/affordable" means bold friendly typography, bright approachable colours, clear value-forward messaging (price, savings visible); "mid-range" sits between the two -- clean and professional without luxury restraint or budget boldness. If multiple product photos are provided, arrange them as a clean uniform gallery strip (consistent crop size and spacing, like a real Nigerian fashion/product flyer) rather than a messy collage. Think premium Nigerian brand flyer, not a meme.',
   customer_appreciation: 'PREMIUM BUSINESS FLYER genre, same principles as business_advert above, but the focal point is the named customer and a warm personal thank-you moment rather than a product launch. Still restrained and premium, not busy.',
-  political: 'CAMPAIGN POSTER genre: bold confident hero typography for candidate name and slogan, strong directional cinematic lighting, party colour palette used with discipline (not overwhelming), clean data band for position/election date. Premium campaign poster energy, not a meme.',
+  political: 'CAMPAIGN POSTER genre: bold confident hero typography for candidate name and slogan, strong directional cinematic lighting, party colour palette used with discipline (not overwhelming), clean data band for position/election date. If a "Type of political design" structured detail is provided, let it sharpen the approach: campaign poster = formal hero portrait with strong leadership presence; rally flyer = dynamic crowd energy with motion and urgency; election promotion = clear call-to-action with voting information prominent; community outreach = warm approachable imagery, less formal, more grassroots connection. Premium campaign poster energy, not a meme.',
   academic: 'CELEBRATION EDITORIAL genre: similar to a premium birthday/celebration flyer -- elegant typography hierarchy with the achievement and name as hero, soft glamour-style lighting, minimal restrained iconography, optional ghosted secondary portrait for depth. Proud and premium, not busy.',
   thank_you: 'EXPRESSIVE PERSONAL MEME genre: this one CAN be busier and more playful -- real human emotion, a speech-bubble moment with the chosen phrase, layered graphic elements (notification-style card, colour-block banner) are appropriate here. More energy and humour than the categories above.',
   apology: 'EXPRESSIVE PERSONAL MEME genre: sincere, emotionally real, can use a speech-bubble moment and softer layered elements. Less playful than thank_you, more tender, but still allowed more visual energy than the premium-flyer categories.',
@@ -152,6 +157,45 @@ const GENRE_GUIDANCE = {
   birthday: 'PREMIUM CELEBRATION EDITORIAL genre: magazine-cover energy. The celebrant\'s name and "Happy Birthday" are the typographic hero, elegant script accent paired with one strong display face, soft glamour-style lighting, a subtle ghosted secondary portrait for depth is welcome, restrained decorative motifs (florals, ribbons, confetti) used sparingly not abundantly. If a real photo was uploaded, it must be the clear visual centerpiece. Premium and editorial, not busy or meme-like.',
   naming_ceremony: 'PREMIUM CELEBRATION EDITORIAL genre, same principles as birthday: elegant typography hero (baby\'s name prominent), soft warm family-celebration lighting, restrained decorative motifs (consider baby-related soft motifs: tiny footprints, simple florals), clean data band for date/venue if relevant. Premium and joyful, not busy.',
   wedding: 'PREMIUM WEDDING INVITATION genre: both names in equal elegant typographic weight. CRITICAL PHOTO RULE: only accept a couple photo showing both people together in one image -- do not try to merge two separate individual portraits. If a real couple photo was uploaded, PRESERVE both faces exactly as uploaded (face-lock: same eyes, nose, jawline, skin tone for both people) -- this is non-negotiable. CLOTHING RULE: check the "Outfit preference" structured detail -- if it says "keep outfits" or similar, PRESERVE the exact clothing from the photo unchanged, only replace the background/add design elements around them; if it says "upgrade to wedding attire" or similar (or if no preference given), upgrade clothing to formal wedding attire. If no photo uploaded, generate a beautiful AI Nigerian couple in wedding attire. Soft romantic florals, restrained ribbons or gold accents, clean data band for date/venue. Cinematic, premium, editorial -- not busy.',
+};
+
+// =============================================
+// ROLE + GOAL ENGINE
+// Sharpens the generic designer persona into a category-specific
+// expert with a stated objective. This gives GPT-5.5 a clearer sense
+// of WHO it is and WHAT the design needs to accomplish, beyond just
+// HOW it should look.
+// =============================================
+const ROLE_ENGINE = {
+  church: 'a world-class Nigerian church creative director with 15 years of experience designing revival, worship, and ministry programme flyers',
+  business_advert: 'a world-class Nigerian advertising designer with 15 years of experience creating premium commercial flyers that drive real sales',
+  customer_appreciation: 'a visual storyteller with 15 years of experience creating emotionally powerful Nigerian customer appreciation designs',
+  political: 'a senior Nigerian political campaign designer responsible for creating trust-building, election-winning campaign visuals',
+  academic: 'a Nigerian academic achievement designer specializing in graduation, NYSC, and certification celebration flyers',
+  birthday: 'a celebrity birthday flyer designer creating premium, Instagram-cover-quality artwork',
+  naming_ceremony: 'a Nigerian family celebration designer specializing in warm, joyful naming ceremony invitations',
+  wedding: 'a luxury Nigerian wedding invitation designer',
+  thank_you: 'a visual storyteller creating warm, expressive Nigerian thank-you designs',
+  apology: 'a visual storyteller creating sincere, emotionally honest Nigerian apology designs',
+  ask_money: 'a visual storyteller creating humorous, relatable Nigerian money-request designs',
+  congratulations: 'a visual storyteller creating celebratory, proud Nigerian congratulations designs',
+  relationship: 'a visual storyteller creating charming, Nollywood-tinted romantic designs',
+};
+
+const GOAL_ENGINE = {
+  church: 'increase attendance and stir spiritual expectation for the programme',
+  business_advert: 'increase sales and drive real customer action',
+  customer_appreciation: 'make the customer feel genuinely valued and strengthen loyalty',
+  political: 'build trust and project strong, credible leadership',
+  academic: 'celebrate the achievement and make the person feel proud and accomplished',
+  birthday: 'make the celebrant feel important, celebrated, and special',
+  naming_ceremony: 'create warmth and joyful anticipation for the new arrival',
+  wedding: 'create elegance, anticipation, and a sense of celebration for the couple',
+  thank_you: 'make the recipient feel genuinely valued and recognized',
+  apology: 'increase the chance of sincere forgiveness',
+  ask_money: 'create empathy and connection that makes the ask land warmly, not desperately',
+  congratulations: 'celebrate pride and success in a way that feels genuine',
+  relationship: 'create charm, attraction, and confidence without being try-hard',
 };
 
 const DESIGNER_LOGIC_PHILOSOPHY = `You are a senior Nigerian graphic designer with 10+ years of experience designing premium flyers, social media campaigns, and brand creative for real Nigerian businesses, churches, and individuals. Your work looks like it belongs on the Instagram feed of a top Lagos/Abuja design studio -- never like a generic AI-generated template.
@@ -267,6 +311,8 @@ async function generateCaptionAndImagePrompt(session) {
     ? `\nDESIGN RESEARCH CONTEXT (from a live web search of real Nigerian designs in this category -- use this to ground your colour and layout decisions):\n${researchContext}\n`
     : '';
   const genreGuidance = GENRE_GUIDANCE[category] || GENRE_GUIDANCE.thank_you;
+  const roleForCategory = ROLE_ENGINE[category] || 'a senior Nigerian graphic designer with 10+ years of experience';
+  const goalForCategory = GOAL_ENGINE[category] || 'create a design the recipient will be proud to receive';
 
   // Build the structured-details block, if this category collects any
   const fieldMap = STRUCTURED_FIELD_LABELS[category];
@@ -308,6 +354,12 @@ async function generateCaptionAndImagePrompt(session) {
     photoInstruction = `\nIMPORTANT: The user uploaded ${photoUrls.length} real reference photos that will be used as reference images during generation. gpt-image-2 needs EXACT positioning instructions for multi-person layouts, not vague placement -- be precise: state the exact arrangement (e.g. "evenly spaced horizontal row" or "left and right with equal scale"), the exact framing for each (e.g. "head-and-shoulders portrait, same crop height for all"), the exact eye-line alignment (e.g. "all faces aligned to the same horizontal eye-line"), and the exact scale relationship (e.g. "identical size, no one larger than another unless seniority is being shown"). Reference each photo by its number explicitly: "Reference Image 1 positioned [X], Reference Image 2 positioned [Y]." Restate that each face must be preserved exactly as uploaded. Do not describe generic stand-in faces.`;
   }
 
+  // Business with no logo provided -- design a simple original monogram
+  // instead of leaving a blank space or a generic placeholder.
+  if (session.has_no_logo && category === 'business_advert') {
+    photoInstruction += `\nNO LOGO PROVIDED: the user has no existing logo. Design a simple, elegant original monogram/icon mark as part of the logo lockup -- typically the business's first letter(s) in a clean geometric or script treatment, matching the overall colour story and positioning (luxury positioning = refined minimal monogram; budget positioning = friendly bold icon). This becomes their de facto logo for this design.`;
+  }
+
   // Universal outfit preference -- applies to ANY category where a real
   // photo was uploaded and the user was asked keep-vs-upgrade. Read
   // directly from session since this is no longer wedding-only.
@@ -325,6 +377,9 @@ async function generateCaptionAndImagePrompt(session) {
     : '';
 
   const systemPrompt = `${DESIGNER_LOGIC_PHILOSOPHY}
+
+FOR THIS SPECIFIC REQUEST, YOU ARE: ${roleForCategory}.
+YOUR GOAL FOR THIS DESIGN: ${goalForCategory}.
 
 GENRE FOR THIS REQUEST: ${genreGuidance}
 ${researchBlock}

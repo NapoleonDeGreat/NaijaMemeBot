@@ -106,12 +106,22 @@ async function sendImage(to, imageUrl, caption) {
   }
 }
 
-async function markRead(messageId) {
-  return axios.post(`${BASE_URL}/messages`, {
+async function markRead(messageId, showTyping = false) {
+  const body = {
     messaging_product: 'whatsapp',
     status: 'read',
     message_id: messageId,
-  }, { headers: HEADERS }).catch(err => logApiError('markRead', err));
+  };
+  // Real WhatsApp typing indicator (Meta Cloud API). Shows the genuine
+  // "typing..." bubble on the user's device, not a simulated delay.
+  // Lasts up to 25 seconds or until the next message is sent, whichever
+  // comes first -- so it's most useful for the start of a wait, not a
+  // full 1-3 minute generation window.
+  if (showTyping) {
+    body.typing_indicator = { type: 'text' };
+  }
+  return axios.post(`${BASE_URL}/messages`, body, { headers: HEADERS })
+    .catch(err => logApiError('markRead', err));
 }
 
 async function downloadMedia(mediaId) {
@@ -131,13 +141,4 @@ async function downloadMedia(mediaId) {
   }
 }
 
-async function sendTyping(to) {
-  // WhatsApp doesn't have a native "typing..." indicator via Cloud API,
-  // so we simulate it by sending a read receipt first (shows the bot
-  // is active) then a brief delay before the real message. This is the
-  // standard pattern used by WhatsApp bots since the typing_on action
-  // is only available via the Business Management API, not Cloud API.
-  return new Promise(resolve => setTimeout(resolve, 1500));
-}
-
-module.exports = { sendText, sendButtons, sendList, sendImage, markRead, downloadMedia, sendTyping };
+module.exports = { sendText, sendButtons, sendList, sendImage, markRead, downloadMedia };

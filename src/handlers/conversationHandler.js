@@ -4,10 +4,18 @@ const paymentSvc = require('../services/paymentService');
 const { generateCaptionAndImagePrompt } = require('../services/gptService');
 const imageSvc = require('../services/imageService');
 const voiceSvc = require('../services/voiceService');
+const musicSvc = require('../services/musicService');
+const { buildMusicPrompt, isPremiumLanguage } = require('../services/promptBuilderService');
 const pool = require('../db/pool');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+
+const ADMIN_PHONE = '2349067140564';
+
+// ══════════════════════════════════════════════════════
+// CATEGORY MAPS
+// ══════════════════════════════════════════════════════
 
 const CATEGORIES = {
   CAT_thank_you: 'thank_you',
@@ -41,38 +49,16 @@ const CATEGORY_LABELS = {
   wedding: '💍 Wedding',
 };
 
-// Categories that go through the structured question flow before
-// the voice-note step. The 5 personal/emotional categories
-// (thank_you, apology, ask_money, congratulations, relationship)
-// skip straight to the original simple flow (recipient name -> gender
-// -> voice note), since they have no structured facts of their own.
 const STRUCTURED_CATEGORIES = new Set([
-  'church',
-  'business_advert',
-  'customer_appreciation',
-  'political',
-  'academic',
-  'birthday',
-  'naming_ceremony',
-  'wedding',
+  'church', 'business_advert', 'customer_appreciation',
+  'political', 'academic', 'birthday', 'naming_ceremony', 'wedding',
 ]);
 
-// Categories that already collect a subject name (celebrant, candidate,
-// business, couple, etc.) via their structured questions, so the old
-// generic "what's the recipient's name?" / "what gender?" tail is
-// redundant and skipped entirely for these.
 const SKIP_GENERIC_NAME_TAIL = new Set([
-  'church',
-  'business_advert',
-  'customer_appreciation',
-  'political',
-  'academic',
-  'birthday',
-  'naming_ceremony',
-  'wedding',
+  'church', 'business_advert', 'customer_appreciation',
+  'political', 'academic', 'birthday', 'naming_ceremony', 'wedding',
 ]);
 
-// Ordered list of structured questions per category.
 const STRUCTURED_QUESTIONS = {
   church: [
     { field: 'event_subtype', prompt: 'What *kind of church programme* is this?\n\n_(e.g. revival, bible study, prayer programme, crusade, family programme, convention, concert -- or describe it in your own words)_' },
@@ -137,38 +123,17 @@ const STRUCTURED_QUESTIONS = {
   ],
 };
 
-// Photo roles per category -- each entry becomes one upload step asking
-// specifically for that person/element's photo, rather than one generic
-// "upload a photo" step. Categories not listed here get the old single
-// generic optional photo step.
-// Napoleon's own number -- bypasses payment entirely so he can test the
-// real generation pipeline (real OpenAI calls, real quality) without
-// needing to push money through Flutterwave every time. Same number
-// already used as the escalation contact in routes/payment.js.
-const ADMIN_PHONE = '2349067140564';
-
 const PHOTO_ROLES = {
-  birthday: [
-    { role: 'celebrant_photo', label: "the celebrant's photo", required: false },
-  ],
-  naming_ceremony: [
-    { role: 'baby_or_parents_photo', label: "a photo of the baby or parents", required: false },
-  ],
-  wedding: [
-    { role: 'couple_photo', label: "a photo of the couple together (both bride and groom in one image)", required: false },
-  ],
+  birthday: [{ role: 'celebrant_photo', label: "the celebrant's photo", required: false }],
+  naming_ceremony: [{ role: 'baby_or_parents_photo', label: "a photo of the baby or parents", required: false }],
+  wedding: [{ role: 'couple_photo', label: "a photo of the couple together (both bride and groom in one image)", required: false }],
   church: [
     { role: 'host_photo', label: "the host/pastor's photo", required: false },
     { role: 'guest_minister_photo', label: "the guest minister's photo (if different from host)", required: false },
   ],
-  political: [
-    { role: 'candidate_photo', label: "the candidate's photo", required: false },
-  ],
+  political: [{ role: 'candidate_photo', label: "the candidate's photo", required: false }],
 };
 
-// Default single generic photo step for structured categories without
-// a specific PHOTO_ROLES entry (business_advert, customer_appreciation,
-// academic).
 const DEFAULT_PHOTO_ROLE = [{ role: 'photo', label: 'your photo or business logo', required: false }];
 
 function getPhotoRoles(category) {
@@ -183,6 +148,15 @@ const LANGUAGE_OPTIONS = [
   { id: 'LANG_hausa', title: 'Hausa' },
 ];
 
+const PERSON_PHOTO_CATEGORIES = new Set([
+  'birthday', 'wedding', 'church', 'political', 'naming_ceremony',
+  'business_advert', 'customer_appreciation', 'academic',
+]);
+
+// ══════════════════════════════════════════════════════
+// MAIN ENTRY POINT
+// ══════════════════════════════════════════════════════
+
 async function handleIncomingMessage(phone, message, messageId) {
   await wa.markRead(messageId);
   await sessionSvc.getOrCreateUser(phone);
@@ -191,14 +165,18 @@ async function handleIncomingMessage(phone, message, messageId) {
   const msgText = (message.text?.body || '').trim().toLowerCase();
 
   const GREETING_TRIGGERS = ['hi', 'hello', 'start', 'menu', 'restart', '0'];
-  const isGreeting = GREETING_TRIGGERS.some(trigger => msgText === trigger || msgText.startsWith(trigger + ' '));
+  const isGreeting = GREETING_TRIGGERS.some(t => msgText === t || msgText.startsWith(t + ' '));
 
   if (isGreeting || !session) {
     session = await sessionSvc.createSession(phone);
-    return sendMenu(phone);
+    return sendMainMenu(phone);
   }
 
   switch (session.state) {
+    // Main menu
+    case 'MAIN_MENU': return handleMainMenuSelection(phone, session, message);
+
+    // Flyer states
     case 'MENU': return handleMenuSelection(phone, session, message);
     case 'STRUCTURED_QA': return handleStructuredAnswer(phone, session, message);
     case 'AWAITING_PHOTO_DECISION': return handlePhotoDecision(phone, session, message);
@@ -215,20 +193,77 @@ async function handleIncomingMessage(phone, message, messageId) {
     case 'AWAITING_VOICE': return handleVoiceInput(phone, session, message);
     case 'AWAITING_PAYMENT': return handlePaymentCheck(phone, session, message);
     case 'AWAITING_SHOUTOUT': return handleShoutoutDecision(phone, session, message);
+
+    // Music states
+    case 'MUSIC_GENRE': return handleMusicGenre(phone, session, message);
+    case 'MUSIC_OCCASION': return handleMusicOccasion(phone, session, message);
+    case 'MUSIC_PERSON_NAME': return handleMusicPersonName(phone, session, message);
+    case 'MUSIC_LANGUAGE': return handleMusicLanguage(phone, session, message);
+    case 'MUSIC_STORY': return handleMusicStory(phone, session, message);
+    case 'MUSIC_AWAITING_PAYMENT': return handleMusicPaymentCheck(phone, session, message);
+
+    // Shared
     case 'AWAITING_FEEDBACK_RATING': return handleFeedbackRating(phone, session, message);
     case 'AWAITING_FEEDBACK_COMMENT': return handleFeedbackComment(phone, session, message);
-    default: return sendMenu(phone);
+
+    default: return sendMainMenu(phone);
   }
 }
 
+// ══════════════════════════════════════════════════════
+// MAIN MENU
+// ══════════════════════════════════════════════════════
+
+async function sendMainMenu(phone) {
+  return wa.sendList(
+    phone,
+    '🎨🎵 NaijaMeme Bot',
+    'Welcome! Na wetin you wan create today?\n\nPick one option 👇',
+    'Choose',
+    [
+      {
+        title: 'What do you want to create?',
+        rows: [
+          { id: 'MAIN_FLYER', title: '🖼️ Create a Flyer' },
+          { id: 'MAIN_SONG', title: '🎵 Create a Song' },
+          { id: 'MAIN_BUNDLE', title: '🎁 Flyer + Song Bundle' },
+        ],
+      },
+    ]
+  );
+}
+
+async function handleMainMenuSelection(phone, session, message) {
+  const selected = message.interactive?.list_reply?.id;
+
+  if (selected === 'MAIN_FLYER') {
+    await sessionSvc.updateSession(session.id, { state: 'MENU', mode: 'flyer' });
+    return sendMenu(phone);
+  }
+
+  if (selected === 'MAIN_SONG') {
+    await sessionSvc.updateSession(session.id, { state: 'MUSIC_GENRE', mode: 'song' });
+    return sendMusicGenreMenu(phone);
+  }
+
+  if (selected === 'MAIN_BUNDLE') {
+    await sessionSvc.updateSession(session.id, { state: 'MUSIC_GENRE', mode: 'bundle' });
+    await wa.sendText(phone, '🎁 *Flyer + Song Bundle* selected! ₦2,000 for both 🔥\n\nLet\'s start with your song 🎵');
+    return sendMusicGenreMenu(phone);
+  }
+
+  return sendMainMenu(phone);
+}
+
+// ══════════════════════════════════════════════════════
+// FLYER FLOW (unchanged from original)
+// ══════════════════════════════════════════════════════
+
 async function sendMenu(phone) {
-  // WhatsApp list messages cap at 10 rows total across all sections.
-  // 13 categories no longer fit in one message, so this is split into
-  // two sequential list messages instead.
   await wa.sendList(
     phone,
     '🎨 NaijaMeme Bot',
-    'Welcome! What type of meme/flier do you want to create?\n\nPick a category below 👇 (more categories in the next message)',
+    'What type of flyer do you want to create?\n\nPick a category below 👇 (more categories in the next message)',
     'Choose Category',
     [
       {
@@ -287,19 +322,12 @@ async function handleMenuSelection(phone, session, message) {
       category,
       structured_step: 0,
     });
-    await wa.sendText(
-      phone,
-      `${CATEGORY_LABELS[category]} selected! ✅\n\nLet's get the details right so your flyer looks professional. A few quick questions 👇`
-    );
+    await wa.sendText(phone, `${CATEGORY_LABELS[category]} selected! ✅\n\nLet's get the details right so your flyer looks professional. A few quick questions 👇`);
     return wa.sendText(phone, questions[0].prompt);
   }
 
-  // Simple personal categories -- go straight to the original flow
   await sessionSvc.updateSession(session.id, { state: 'CATEGORY_SELECTED', category });
-  await wa.sendText(
-    phone,
-    `${CATEGORY_LABELS[category]} selected! ✅\n\nWhat is the *name* of the person you are sending this to?\n\n_(e.g. Mama, Oga Tony, Chioma, Pastor Mike)_`
-  );
+  await wa.sendText(phone, `${CATEGORY_LABELS[category]} selected! ✅\n\nWhat is the *name* of the person you are sending this to?\n\n_(e.g. Mama, Oga Tony, Chioma, Pastor Mike)_`);
 }
 
 async function handleStructuredAnswer(phone, session, message) {
@@ -323,17 +351,12 @@ async function handleStructuredAnswer(phone, session, message) {
     return wa.sendText(phone, questions[nextStep].prompt);
   }
 
-  // All structured questions done -- start the photo-role flow
   return startPhotoFlow(phone, session.id);
 }
 
 async function startPhotoFlow(phone, sessionId) {
   const freshSession = await sessionSvc.getSessionById(sessionId);
 
-  // business_advert gets its own flow: logo first, then a flexible
-  // "add another product photo?" loop, since product counts vary
-  // wildly (1 logo only vs a 6-item gallery) unlike fixed-role
-  // categories like wedding (always couple) or church (host+guest).
   if (freshSession.category === 'business_advert') {
     await sessionSvc.updateSession(sessionId, { state: 'AWAITING_LOGO_DECISION' });
     return wa.sendButtons(
@@ -347,16 +370,12 @@ async function startPhotoFlow(phone, sessionId) {
   }
 
   const roles = getPhotoRoles(freshSession.category);
-
-  await sessionSvc.updateSession(sessionId, {
-    state: 'AWAITING_PHOTO_DECISION',
-    photo_role_step: 0,
-  });
+  await sessionSvc.updateSession(sessionId, { state: 'AWAITING_PHOTO_DECISION', photo_role_step: 0 });
 
   const firstRole = roles[0];
   return wa.sendButtons(
     phone,
-    `✅ Got all the details!\n\nWant to upload ${firstRole.label}? Real photos make the design look personal and premium. You can add more than one if needed.`,
+    `✅ Got all the details!\n\nWant to upload ${firstRole.label}? Real photos make the design look personal and premium.`,
     [
       { id: 'PHOTO_YES', title: '📸 Upload Photo' },
       { id: 'PHOTO_SKIP', title: '⏭️ Skip' },
@@ -366,32 +385,24 @@ async function startPhotoFlow(phone, sessionId) {
 
 async function handleLogoDecision(phone, session, message) {
   const btnId = message.interactive?.button_reply?.id;
-
   if (btnId === 'LOGO_YES') {
     await sessionSvc.updateSession(session.id, { state: 'AWAITING_LOGO_UPLOAD' });
     return wa.sendText(phone, '🖼️ Send your business logo now as an image.');
   }
-
   if (btnId === 'LOGO_SKIP') {
     await sessionSvc.updateSession(session.id, { has_no_logo: true });
     return askForProductPhotos(phone, session.id, true);
   }
-
-  return wa.sendButtons(
-    phone,
-    'Please choose an option:',
-    [
-      { id: 'LOGO_YES', title: '🖼️ Upload Logo' },
-      { id: 'LOGO_SKIP', title: '✨ Create One For Me' },
-    ]
-  );
+  return wa.sendButtons(phone, 'Please choose an option:', [
+    { id: 'LOGO_YES', title: '🖼️ Upload Logo' },
+    { id: 'LOGO_SKIP', title: '✨ Create One For Me' },
+  ]);
 }
 
 async function handleLogoUpload(phone, session, message) {
   if (message.type !== 'image') {
     return wa.sendText(phone, '⚠️ Please send your logo as an image, or type *skip* to let us create one.');
   }
-
   await wa.sendText(phone, '⏳ Got your logo! Saving it...');
   try {
     await saveUploadedPhoto(phone, session.id, message, 'logo');
@@ -408,27 +419,20 @@ async function askForProductPhotos(phone, sessionId, isFirstAsk) {
   const prompt = isFirstAsk
     ? `No wahala! Now -- want to upload *product or shop photos*? You can add up to 6 to show off your range.`
     : `Want to add *another product photo*? You can add up to 6 total.`;
-  return wa.sendButtons(
-    phone,
-    prompt,
-    [
-      { id: 'PRODUCT_PHOTO_YES', title: '📸 Add Photo' },
-      { id: 'PRODUCT_PHOTO_DONE', title: '✅ Done Adding' },
-    ]
-  );
+  return wa.sendButtons(phone, prompt, [
+    { id: 'PRODUCT_PHOTO_YES', title: '📸 Add Photo' },
+    { id: 'PRODUCT_PHOTO_DONE', title: '✅ Done Adding' },
+  ]);
 }
 
 async function handleProductPhotoDecision(phone, session, message) {
   const btnId = message.interactive?.button_reply?.id;
-
   if (btnId === 'PRODUCT_PHOTO_YES') {
     let currentCount = 0;
     try {
       const urls = session.photo_urls ? JSON.parse(session.photo_urls) : [];
       currentCount = urls.length;
-    } catch {
-      currentCount = 0;
-    }
+    } catch { currentCount = 0; }
     if (currentCount >= 6) {
       await wa.sendText(phone, "That's 6 photos already, the max for one design! Moving on...");
       return proceedPastPhotos(phone, session.id);
@@ -436,31 +440,21 @@ async function handleProductPhotoDecision(phone, session, message) {
     await sessionSvc.updateSession(session.id, { state: 'AWAITING_PRODUCT_PHOTO_UPLOAD' });
     return wa.sendText(phone, '📸 Send the product/shop photo now as an image.');
   }
-
-  if (btnId === 'PRODUCT_PHOTO_DONE') {
-    return proceedPastPhotos(phone, session.id);
-  }
-
-  return wa.sendButtons(
-    phone,
-    'Please choose an option:',
-    [
-      { id: 'PRODUCT_PHOTO_YES', title: '📸 Add Photo' },
-      { id: 'PRODUCT_PHOTO_DONE', title: '✅ Done Adding' },
-    ]
-  );
+  if (btnId === 'PRODUCT_PHOTO_DONE') return proceedPastPhotos(phone, session.id);
+  return wa.sendButtons(phone, 'Please choose an option:', [
+    { id: 'PRODUCT_PHOTO_YES', title: '📸 Add Photo' },
+    { id: 'PRODUCT_PHOTO_DONE', title: '✅ Done Adding' },
+  ]);
 }
 
 async function handleProductPhotoUpload(phone, session, message) {
   if (message.type !== 'image') {
     return wa.sendText(phone, '⚠️ Please send a photo as an image, or type *skip* to move on.');
   }
-
   await wa.sendText(phone, '⏳ Got it! Saving...');
   try {
     await saveUploadedPhoto(phone, session.id, message, 'product');
     await wa.sendText(phone, '✅ Photo saved!');
-    const freshSession = await sessionSvc.getSessionById(session.id);
     return askForProductPhotos(phone, session.id, false);
   } catch (err) {
     console.error('Product photo upload error:', err.message);
@@ -468,11 +462,8 @@ async function handleProductPhotoUpload(phone, session, message) {
   }
 }
 
-// Shared upload-and-store logic used by both the logo upload and the
-// product photo loop, so the file-handling code isn't duplicated.
 async function saveUploadedPhoto(phone, sessionId, message, photoType = 'person') {
   const { buffer, mimeType } = await wa.downloadMedia(message.image.id);
-
   const ext = mimeType.includes('png') ? 'png' : 'jpg';
   const filename = `upload_${uuidv4()}.${ext}`;
   const uploadDir = path.join(__dirname, '../../public/uploads');
@@ -484,9 +475,7 @@ async function saveUploadedPhoto(phone, sessionId, message, photoType = 'person'
   const publicUrl = `${baseUrl}/uploads/${filename}`;
 
   const freshSession = await sessionSvc.getSessionById(sessionId);
-  let urls = [];
-  let localPaths = [];
-  let types = [];
+  let urls = [], localPaths = [], types = [];
   try { urls = freshSession.photo_urls ? JSON.parse(freshSession.photo_urls) : []; } catch { urls = []; }
   try { localPaths = freshSession.photo_local_paths ? JSON.parse(freshSession.photo_local_paths) : []; } catch { localPaths = []; }
   try { types = freshSession.photo_types ? JSON.parse(freshSession.photo_types) : []; } catch { types = []; }
@@ -513,30 +502,21 @@ async function handlePhotoDecision(phone, session, message) {
     await sessionSvc.updateSession(session.id, { state: 'AWAITING_PHOTO_UPLOAD' });
     return wa.sendText(phone, `📸 Send ${currentRole.label} now as an image.`);
   }
+  if (btnId === 'PHOTO_SKIP') return advancePhotoRoleOrContinue(phone, session.id, roleStep);
 
-  if (btnId === 'PHOTO_SKIP') {
-    return advancePhotoRoleOrContinue(phone, session.id, roleStep);
-  }
-
-  return wa.sendButtons(
-    phone,
-    'Please choose an option:',
-    [
-      { id: 'PHOTO_YES', title: '📸 Upload Photo' },
-      { id: 'PHOTO_SKIP', title: '⏭️ Skip' },
-    ]
-  );
+  return wa.sendButtons(phone, 'Please choose an option:', [
+    { id: 'PHOTO_YES', title: '📸 Upload Photo' },
+    { id: 'PHOTO_SKIP', title: '⏭️ Skip' },
+  ]);
 }
 
 async function handlePhotoUpload(phone, session, message) {
   if (message.type !== 'image') {
     return wa.sendText(phone, '⚠️ Please send a photo as an image, or type *skip* to continue without one.');
   }
-
   await wa.sendText(phone, '⏳ Got your photo! Saving it...');
   try {
     const { buffer, mimeType } = await wa.downloadMedia(message.image.id);
-
     const ext = mimeType.includes('png') ? 'png' : 'jpg';
     const filename = `upload_${uuidv4()}.${ext}`;
     const uploadDir = path.join(__dirname, '../../public/uploads');
@@ -547,10 +527,8 @@ async function handlePhotoUpload(phone, session, message) {
     const baseUrl = (process.env.APP_URL || '').replace(/\/+$/, '');
     const publicUrl = `${baseUrl}/uploads/${filename}`;
 
-    // Append to the existing photo arrays rather than overwriting
     const freshSession = await sessionSvc.getSessionById(session.id);
-    let urls = [];
-    let localPaths = [];
+    let urls = [], localPaths = [];
     try { urls = freshSession.photo_urls ? JSON.parse(freshSession.photo_urls) : []; } catch { urls = []; }
     try { localPaths = freshSession.photo_local_paths ? JSON.parse(freshSession.photo_local_paths) : []; } catch { localPaths = []; }
 
@@ -564,7 +542,6 @@ async function handlePhotoUpload(phone, session, message) {
     });
 
     await wa.sendText(phone, '✅ Photo saved!');
-
     const roleStep = freshSession.photo_role_step || 0;
     return advancePhotoRoleOrContinue(phone, session.id, roleStep);
   } catch (err) {
@@ -579,48 +556,25 @@ async function advancePhotoRoleOrContinue(phone, sessionId, completedRoleStep) {
   const nextRoleStep = completedRoleStep + 1;
 
   if (nextRoleStep < roles.length) {
-    await sessionSvc.updateSession(sessionId, {
-      state: 'AWAITING_PHOTO_DECISION',
-      photo_role_step: nextRoleStep,
-    });
+    await sessionSvc.updateSession(sessionId, { state: 'AWAITING_PHOTO_DECISION', photo_role_step: nextRoleStep });
     const nextRole = roles[nextRoleStep];
-    return wa.sendButtons(
-      phone,
-      `Want to upload ${nextRole.label}?`,
-      [
-        { id: 'PHOTO_YES', title: '📸 Upload Photo' },
-        { id: 'PHOTO_SKIP', title: '⏭️ Skip' },
-      ]
-    );
+    return wa.sendButtons(phone, `Want to upload ${nextRole.label}?`, [
+      { id: 'PHOTO_YES', title: '📸 Upload Photo' },
+      { id: 'PHOTO_SKIP', title: '⏭️ Skip' },
+    ]);
   }
 
-  // All photo roles for this category have been offered -- move on
   return proceedPastPhotos(phone, sessionId);
 }
 
-// Categories where the photo roles are of actual people (not just a
-// business logo) -- these are the ones where "keep outfit vs upgrade
-// clothing" is a meaningful question. business_advert/customer_appreciation
-// default photo role is often a logo, so we skip asking there unless a
-// photo was genuinely uploaded.
-const PERSON_PHOTO_CATEGORIES = new Set([
-  'birthday', 'wedding', 'church', 'political', 'naming_ceremony',
-  'business_advert', 'customer_appreciation', 'academic',
-]);
-
 async function proceedPastPhotos(phone, sessionId) {
   const freshSession = await sessionSvc.getSessionById(sessionId);
-
   let photoCount = 0;
   try {
     const urls = freshSession.photo_urls ? JSON.parse(freshSession.photo_urls) : [];
     photoCount = urls.length;
-  } catch {
-    photoCount = 0;
-  }
+  } catch { photoCount = 0; }
 
-  // If at least one real photo was uploaded for a person-photo category,
-  // ask once whether to keep the exact outfit or upgrade it for the design.
   if (photoCount > 0 && PERSON_PHOTO_CATEGORIES.has(freshSession.category) && !freshSession.outfit_preference) {
     await sessionSvc.updateSession(sessionId, { state: 'AWAITING_OUTFIT_PREFERENCE' });
     return wa.sendButtons(
@@ -634,13 +588,9 @@ async function proceedPastPhotos(phone, sessionId) {
   }
 
   if (SKIP_GENERIC_NAME_TAIL.has(freshSession.category)) {
-    // This category already collected its own subject name(s) via
-    // structured questions -- skip straight to language choice + voice note.
     return askLanguage(phone, sessionId);
   }
 
-  // Shouldn't normally happen (structured categories all skip the tail),
-  // but fall back safely just in case.
   await sessionSvc.updateSession(sessionId, { state: 'CATEGORY_SELECTED' });
   return wa.sendText(phone, 'What is the *name* of the person this is for?');
 }
@@ -650,21 +600,15 @@ async function handleOutfitPreference(phone, session, message) {
   const preference = btnId === 'OUTFIT_KEEP' ? 'keep outfits' : btnId === 'OUTFIT_UPGRADE' ? 'upgrade to suit flyer style' : null;
 
   if (!preference) {
-    return wa.sendButtons(
-      phone,
-      'Please choose an option:',
-      [
-        { id: 'OUTFIT_KEEP', title: '👕 Keep Outfit' },
-        { id: 'OUTFIT_UPGRADE', title: '✨ Upgrade Outfit' },
-      ]
-    );
+    return wa.sendButtons(phone, 'Please choose an option:', [
+      { id: 'OUTFIT_KEEP', title: '👕 Keep Outfit' },
+      { id: 'OUTFIT_UPGRADE', title: '✨ Upgrade Outfit' },
+    ]);
   }
 
   await sessionSvc.updateSession(session.id, { outfit_preference: preference });
 
-  if (SKIP_GENERIC_NAME_TAIL.has(session.category)) {
-    return askLanguage(phone, session.id);
-  }
+  if (SKIP_GENERIC_NAME_TAIL.has(session.category)) return askLanguage(phone, session.id);
 
   await sessionSvc.updateSession(session.id, { state: 'CATEGORY_SELECTED' });
   return wa.sendText(phone, 'What is the *name* of the person this is for?');
@@ -677,12 +621,7 @@ async function askLanguage(phone, sessionId) {
     '🎤 Voice Note Language',
     'What language will you record your voice note in? This helps us transcribe it accurately.',
     'Choose Language',
-    [
-      {
-        title: 'Languages',
-        rows: LANGUAGE_OPTIONS,
-      },
-    ]
+    [{ title: 'Languages', rows: LANGUAGE_OPTIONS }]
   );
 }
 
@@ -698,30 +637,21 @@ async function handleLanguageSelection(phone, session, message) {
   const voiceLanguage = langMap[selected];
 
   if (!voiceLanguage) {
-    return wa.sendList(
-      phone,
-      '🎤 Voice Note Language',
-      'Please choose a language from the list:',
-      'Choose Language',
-      [{ title: 'Languages', rows: LANGUAGE_OPTIONS }]
-    );
+    return wa.sendList(phone, '🎤 Voice Note Language', 'Please choose a language from the list:', 'Choose Language',
+      [{ title: 'Languages', rows: LANGUAGE_OPTIONS }]);
   }
 
   await sessionSvc.updateSession(session.id, { voice_language: voiceLanguage, state: 'AWAITING_VOICE' });
   await wa.sendButtons(
     phone,
     `🎤 Now send a voice note and watch your meme unfold like magic! ✨\n\nTell us what you want to say -- we go turn am to something beautiful.\n\nOr type your message if you prefer.`,
-    [
-      { id: 'TYPE_MESSAGE', title: '⌨️ Type Instead' },
-    ]
+    [{ id: 'TYPE_MESSAGE', title: '⌨️ Type Instead' }]
   );
 }
 
 async function handleRecipientName(phone, session, message) {
   const name = message.text?.body?.trim();
-  if (!name || name.length < 1) {
-    return wa.sendText(phone, '⚠️ Please enter a valid name.');
-  }
+  if (!name || name.length < 1) return wa.sendText(phone, '⚠️ Please enter a valid name.');
 
   await sessionSvc.updateSession(session.id, { state: 'RECIPIENT_NAME', recipient_name: name });
   await wa.sendButtons(
@@ -739,14 +669,10 @@ async function handleGender(phone, session, message) {
   const gender = btnId === 'GENDER_MALE' ? 'male' : btnId === 'GENDER_FEMALE' ? 'female' : null;
 
   if (!gender) {
-    return wa.sendButtons(
-      phone,
-      'Please select the gender:',
-      [
-        { id: 'GENDER_MALE', title: '👨 Male' },
-        { id: 'GENDER_FEMALE', title: '👩 Female' },
-      ]
-    );
+    return wa.sendButtons(phone, 'Please select the gender:', [
+      { id: 'GENDER_MALE', title: '👨 Male' },
+      { id: 'GENDER_FEMALE', title: '👩 Female' },
+    ]);
   }
 
   await sessionSvc.updateSession(session.id, { gender });
@@ -765,7 +691,6 @@ async function handleVoiceInput(phone, session, message) {
     return wa.sendText(phone, '⌨️ Type your message now -- tell us what you want to say:');
   }
 
-  // Handle voice note
   if (message.type === 'audio') {
     await wa.sendText(phone, '⏳ Got your voice note! Transcribing...');
     try {
@@ -781,7 +706,6 @@ async function handleVoiceInput(phone, session, message) {
     }
   }
 
-  // Handle typed message
   if (message.text?.body) {
     const typed = message.text.body.trim();
     if (typed.length > 2) {
@@ -795,9 +719,6 @@ async function handleVoiceInput(phone, session, message) {
 }
 
 async function triggerPayment(phone, session) {
-  // Admin bypass -- skip the Flutterwave payment gate entirely so the
-  // owner can test the real generation pipeline (real OpenAI calls,
-  // real output quality) without paying himself every time.
   const normalizedPhone = phone.replace(/[^0-9]/g, '');
   if (normalizedPhone === ADMIN_PHONE) {
     await wa.sendText(phone, '🔓 Admin mode -- skipping payment. Generating now...');
@@ -811,14 +732,11 @@ async function triggerPayment(phone, session) {
       category: session.category,
     });
 
-    await sessionSvc.updateSession(session.id, {
-      state: 'AWAITING_PAYMENT',
-      payment_ref: reference,
-    });
+    await sessionSvc.updateSession(session.id, { state: 'AWAITING_PAYMENT', payment_ref: reference });
 
     await wa.sendText(
       phone,
-      `💳 *Almost there!*\n\nPay *₦${amount}* to unlock your meme:\n\n${paymentUrl}\n\n_After payment, type *done* to confirm._`
+      `💳 *Almost there!*\n\nPay *₦${amount}* to unlock your flyer:\n\n${paymentUrl}\n\n_After payment, type *done* to confirm._`
     );
   } catch (err) {
     console.error('Payment error:', err.message);
@@ -845,36 +763,18 @@ async function handlePaymentCheck(phone, session, message) {
 }
 
 async function generateAndSend(phone, session, triggeringMessageId) {
-  // Real WhatsApp typing indicator, shown via the markRead call against
-  // the message that triggered generation (e.g. user typing "done").
-  // Only available when called from a live WhatsApp message -- the
-  // payment webhook/callback routes call this without a message ID
-  // (server-to-server, no inbound message to attach the indicator to),
-  // so this is skipped gracefully in that case.
-  if (triggeringMessageId) {
-    await wa.markRead(triggeringMessageId, true);
-  }
+  if (triggeringMessageId) await wa.markRead(triggeringMessageId, true);
   await wa.sendText(phone, '🎨 Payment confirmed! Creating your unique meme now...\n\n_This usually takes 1-3 minutes for premium quality ✨_');
   await sessionSvc.updateSession(session.id, { state: 'GENERATING' });
 
   try {
     const freshSession = await sessionSvc.getSessionById(session.id);
-
     const { caption, imagePrompt } = await generateCaptionAndImagePrompt(freshSession);
 
     let photoLocalPaths = [];
-    try {
-      photoLocalPaths = freshSession.photo_local_paths ? JSON.parse(freshSession.photo_local_paths) : [];
-    } catch {
-      photoLocalPaths = [];
-    }
-
     let photoTypes = [];
-    try {
-      photoTypes = freshSession.photo_types ? JSON.parse(freshSession.photo_types) : [];
-    } catch {
-      photoTypes = [];
-    }
+    try { photoLocalPaths = freshSession.photo_local_paths ? JSON.parse(freshSession.photo_local_paths) : []; } catch { photoLocalPaths = []; }
+    try { photoTypes = freshSession.photo_types ? JSON.parse(freshSession.photo_types) : []; } catch { photoTypes = []; }
 
     const { publicUrl, localPath: generatedLocalPath } = await imageSvc.generateMemeImage({
       imagePrompt,
@@ -893,9 +793,6 @@ async function generateAndSend(phone, session, triggeringMessageId) {
 
     await wa.sendImage(phone, publicUrl, caption);
 
-    // Warm, genuinely personal closing message -- speaks to what the
-    // person just created and why it matters, not generic "thank you
-    // for using our bot" corporate gratitude.
     const thankYouMessages = {
       birthday: `🎂 *${freshSession.celebrant_name || freshSession.recipient_name}* go smile well well when dem see this -- you don show say you care. That na the real gift sometimes, not the card, na the thought wey dey behind am. Enjoy the celebration! 🙏✨`,
       wedding: `💍 Una don create something beautiful to mark this love story. Years from now, una go still dey look back on this moment. We honoured say you choose us to be part of am 🙏✨`,
@@ -911,7 +808,7 @@ async function generateAndSend(phone, session, triggeringMessageId) {
       ask_money: `💸 Asking for help no easy, but you don put am out there in a way wey go land soft. We dey hope say everything works out for you 😄🙏`,
       relationship: `💔 You don shoot your shot -- and that already take guts. Whatever happens next, at least they go know exactly how you feel. We dey root for you 🎯😄`,
     };
-    const thankYou = thankYouMessages[freshSession.category] || `🙏 We're genuinely glad we could help bring this to life for you. Every design we make is for a real moment in someone's life -- thank you for letting this be one of them.`;
+    const thankYou = thankYouMessages[freshSession.category] || `🙏 We're genuinely glad we could help bring this to life for you.`;
     await wa.sendText(phone, thankYou);
 
     await sessionSvc.updateSession(session.id, {
@@ -927,7 +824,7 @@ async function generateAndSend(phone, session, triggeringMessageId) {
 
     await wa.sendButtons(
       phone,
-      `✅ Your meme don land! 🔥\n\nWant a *voice shoutout* to go with it? We go record the caption in a dramatic Nigerian accent! 🎤\n\n_Just ₦200 extra_`,
+      `✅ Your flyer don land! 🔥\n\nWant a *voice shoutout* to go with it? We go record the caption in a dramatic Nigerian accent! 🎤\n\n_Just ₦200 extra_`,
       [
         { id: 'SHOUTOUT_YES', title: '🎤 Yes! Add Shoutout' },
         { id: 'SHOUTOUT_NO', title: '✅ No, Am Good' },
@@ -935,7 +832,6 @@ async function generateAndSend(phone, session, triggeringMessageId) {
     );
   } catch (err) {
     console.error('Generation error:', err.message);
-    console.error('Generation error FULL DETAIL:', JSON.stringify(err.error || err.response?.data || err, Object.getOwnPropertyNames(err)));
     await sessionSvc.updateSession(session.id, { state: 'DONE' });
     await wa.sendText(phone, '❌ Something went wrong generating your meme. Type *menu* to try again. Your payment is saved.');
   }
@@ -943,15 +839,298 @@ async function generateAndSend(phone, session, triggeringMessageId) {
 
 async function handleShoutoutDecision(phone, session, message) {
   const btnId = message.interactive?.button_reply?.id;
-
   if (btnId === 'SHOUTOUT_YES') {
     await wa.sendText(phone, '🎤 Shoutout feature coming very soon! Watch this space 🔥');
     return askForFeedback(phone, session.id);
   } else if (btnId === 'SHOUTOUT_NO') {
-    await wa.sendText(phone, `🔥 Your meme don ready! Save am and share!`);
+    await wa.sendText(phone, `🔥 Your flyer don ready! Save am and share!`);
     return askForFeedback(phone, session.id);
   }
 }
+
+// ══════════════════════════════════════════════════════
+// MUSIC FLOW
+// ══════════════════════════════════════════════════════
+
+async function sendMusicGenreMenu(phone) {
+  return wa.sendList(
+    phone,
+    '🎵 Choose Your Sound',
+    'Which style of music do you want?',
+    'Pick Genre',
+    [
+      {
+        title: 'Nigerian Genres',
+        rows: [
+          { id: 'GENRE_afrobeats', title: '🔥 Afrobeats' },
+          { id: 'GENRE_amapiano', title: '🎹 Amapiano' },
+          { id: 'GENRE_igbo_highlife', title: '🥁 Igbo Highlife + Ogene' },
+          { id: 'GENRE_yoruba_juju', title: '🎸 Yoruba Juju/Praise' },
+          { id: 'GENRE_gospel', title: '🙏 Nigerian Gospel' },
+          { id: 'GENRE_street_pop', title: '🎤 Street Pop (Asake style)' },
+          { id: 'GENRE_pidgin_mix', title: '🌍 Pidgin + Yoruba Mix' },
+        ],
+      },
+    ]
+  );
+}
+
+async function handleMusicGenre(phone, session, message) {
+  const selected = message.interactive?.list_reply?.id;
+  const genreMap = {
+    GENRE_afrobeats: 'afrobeats',
+    GENRE_amapiano: 'amapiano',
+    GENRE_igbo_highlife: 'igbo_highlife',
+    GENRE_yoruba_juju: 'yoruba_juju',
+    GENRE_gospel: 'gospel',
+    GENRE_street_pop: 'street_pop',
+    GENRE_pidgin_mix: 'pidgin_mix',
+  };
+
+  const genre = genreMap[selected];
+  if (!genre) return sendMusicGenreMenu(phone);
+
+  await sessionSvc.updateSession(session.id, { music_genre: genre, state: 'MUSIC_OCCASION' });
+
+  return wa.sendList(
+    phone,
+    '🎉 What\'s the Occasion?',
+    'What is this song for?',
+    'Pick Occasion',
+    [
+      {
+        title: 'Occasions',
+        rows: [
+          { id: 'OCC_birthday', title: '🎂 Birthday' },
+          { id: 'OCC_wedding', title: '💍 Wedding' },
+          { id: 'OCC_owambe', title: '🎉 Owambe/Party Hype' },
+          { id: 'OCC_graduation', title: '🎓 Graduation' },
+          { id: 'OCC_church', title: '⛪ Church/Testimony' },
+          { id: 'OCC_business', title: '📢 Business Jingle' },
+          { id: 'OCC_love', title: '❤️ Love/Dedication' },
+          { id: 'OCC_motivation', title: '💪 Motivation/Hustle' },
+          { id: 'OCC_banter', title: '😂 Banter/Roast a Friend' },
+          { id: 'OCC_custom', title: '✏️ Something Else' },
+        ],
+      },
+    ]
+  );
+}
+
+async function handleMusicOccasion(phone, session, message) {
+  const selected = message.interactive?.list_reply?.id;
+  const occasionMap = {
+    OCC_birthday: 'birthday celebration',
+    OCC_wedding: 'wedding',
+    OCC_owambe: 'owambe party hype',
+    OCC_graduation: 'graduation',
+    OCC_church: 'church testimony and thanksgiving',
+    OCC_business: 'business jingle and promotion',
+    OCC_love: 'love dedication',
+    OCC_motivation: 'motivation and hustle anthem',
+    OCC_banter: 'friendly banter and roasting a friend',
+    OCC_custom: 'custom',
+  };
+
+  const occasion = occasionMap[selected];
+  if (!occasion) return wa.sendText(phone, 'Please pick an occasion from the list.');
+
+  await sessionSvc.updateSession(session.id, { music_occasion: occasion, state: 'MUSIC_PERSON_NAME' });
+
+  return wa.sendText(
+    phone,
+    `🎯 Who is this song for?\n\nTell me their *name* and anything special about them.\n\n_e.g. "My sister Amaka, she just graduated from UNILAG after 5 years of hustle"_`
+  );
+}
+
+async function handleMusicPersonName(phone, session, message) {
+  const text = message.text?.body?.trim();
+  if (!text || text.length < 2) return wa.sendText(phone, '⚠️ Please tell me who the song is for.');
+
+  await sessionSvc.updateSession(session.id, { music_person_name: text, state: 'MUSIC_LANGUAGE' });
+
+  return wa.sendList(
+    phone,
+    '🗣️ Song Language',
+    'Which language should the song be in?',
+    'Pick Language',
+    [
+      {
+        title: 'Languages',
+        rows: [
+          { id: 'MLANG_pidgin', title: '🇳🇬 Nigerian Pidgin (₦1,000)' },
+          { id: 'MLANG_english', title: '🌍 English (₦1,000)' },
+          { id: 'MLANG_igbo', title: 'Igbo (₦1,500)' },
+          { id: 'MLANG_yoruba', title: 'Yoruba (₦1,500)' },
+          { id: 'MLANG_hausa', title: 'Hausa (₦1,500)' },
+          { id: 'MLANG_pidgin_yoruba', title: '🔀 Pidgin + Yoruba Mix (₦1,500)' },
+          { id: 'MLANG_pidgin_igbo', title: '🔀 Pidgin + Igbo Mix (₦1,500)' },
+        ],
+      },
+    ]
+  );
+}
+
+async function handleMusicLanguage(phone, session, message) {
+  const selected = message.interactive?.list_reply?.id;
+  const langMap = {
+    MLANG_pidgin: 'Nigerian Pidgin English',
+    MLANG_english: 'English',
+    MLANG_igbo: 'Igbo',
+    MLANG_yoruba: 'Yoruba',
+    MLANG_hausa: 'Hausa',
+    MLANG_pidgin_yoruba: 'Nigerian Pidgin mixed with Yoruba naturally',
+    MLANG_pidgin_igbo: 'Nigerian Pidgin mixed with Igbo naturally',
+  };
+
+  const lang = langMap[selected];
+  if (!lang) return wa.sendText(phone, 'Please pick a language from the list.');
+
+  await sessionSvc.updateSession(session.id, { music_language: lang, state: 'MUSIC_STORY' });
+
+  await wa.sendButtons(
+    phone,
+    `🎤 Last step! Tell me the *story or message* for this song.\n\nThe more details you give, the more personal and powerful your song will be 🔥\n\n_e.g. "My friend Tunde just got his first job at GTBank after 2 years of hustling. He's from Ibadan. Make something that hypes him up mad"_\n\nOr send a voice note 🎙️`,
+    [{ id: 'MUSIC_TYPE_INSTEAD', title: '⌨️ Type Message' }]
+  );
+}
+
+async function handleMusicStory(phone, session, message) {
+  const btnId = message.interactive?.button_reply?.id;
+  if (btnId === 'MUSIC_TYPE_INSTEAD') {
+    return wa.sendText(phone, '⌨️ Type your story or message now:');
+  }
+
+  let story = '';
+
+  if (message.type === 'audio') {
+    await wa.sendText(phone, '⏳ Got your voice note! Transcribing...');
+    try {
+      const { buffer, mimeType } = await wa.downloadMedia(message.audio.id);
+      story = await voiceSvc.transcribeVoiceNote(buffer, mimeType, 'english');
+      await wa.sendText(phone, `✅ I heard:\n\n_"${story}"_`);
+    } catch (err) {
+      console.error('Music voice transcription error:', err.message);
+      return wa.sendText(phone, '⚠️ Could not process voice note. Please type your story instead:');
+    }
+  } else if (message.text?.body?.trim().length > 2) {
+    story = message.text.body.trim();
+  } else {
+    return wa.sendText(phone, '⚠️ Please type your story or send a voice note.');
+  }
+
+  await sessionSvc.updateSession(session.id, { music_story: story, state: 'MUSIC_AWAITING_PAYMENT' });
+  return triggerMusicPayment(phone, session);
+}
+
+async function triggerMusicPayment(phone, session) {
+  const normalizedPhone = phone.replace(/[^0-9]/g, '');
+  if (normalizedPhone === ADMIN_PHONE) {
+    await wa.sendText(phone, '🔓 Admin mode -- skipping payment. Generating song now...');
+    return generateAndSendSong(phone, session);
+  }
+
+  try {
+    // Determine price tier based on language
+    const freshSession = await sessionSvc.getSessionById(session.id);
+    const isPremium = isPremiumLanguage(freshSession.music_language);
+    const category = session.mode === 'bundle' ? 'bundle' : (isPremium ? 'music_premium' : 'music_quick');
+
+    const { paymentUrl, reference, amount } = await paymentSvc.initializePayment({
+      phone,
+      sessionId: session.id,
+      category,
+    });
+
+    await sessionSvc.updateSession(session.id, {
+      state: 'MUSIC_AWAITING_PAYMENT',
+      payment_ref: reference,
+    });
+
+    const description = session.mode === 'bundle'
+      ? `🎁 *Flyer + Song Bundle*`
+      : `🎵 *Your song is ready to be created!*`;
+
+    await wa.sendText(
+      phone,
+      `${description}\n\nPay *₦${amount}* to generate your personalised Nigerian song:\n\n${paymentUrl}\n\n_After payment, type *done* to confirm._`
+    );
+  } catch (err) {
+    console.error('Music payment error:', err.message);
+    await wa.sendText(phone, '❌ Payment initialization failed. Type *menu* to try again.');
+  }
+}
+
+async function handleMusicPaymentCheck(phone, session, message) {
+  const text = (message.text?.body || '').trim().toLowerCase();
+  if (!['done', 'paid', 'complete', 'check'].includes(text)) {
+    return wa.sendText(phone, '⏳ Waiting for payment... Type *done* after paying or *menu* to restart.');
+  }
+
+  const result = await pool.query(
+    "SELECT status FROM payments WHERE session_id = $1 AND status = 'success' LIMIT 1",
+    [session.id]
+  );
+
+  if (result.rows.length === 0) {
+    return wa.sendText(phone, '⚠️ Payment not confirmed yet. Complete payment then type *done*.');
+  }
+
+  return generateAndSendSong(phone, session);
+}
+
+async function generateAndSendSong(phone, session) {
+  await wa.sendText(
+    phone,
+    '🎵 Payment confirmed! Creating your personalised Nigerian song now...\n\n_This usually takes 2-3 minutes. We dey cook something special for you_ 🔥'
+  );
+
+  try {
+    const freshSession = await sessionSvc.getSessionById(session.id);
+
+    await wa.sendText(phone, '✍️ Writing your lyrics...');
+    const { lyrics, sunoPrompt, title, previewLine } = await buildMusicPrompt(freshSession);
+
+    await wa.sendText(phone, `📝 Lyrics don ready!\n\n_"${previewLine}"_\n\n🎼 Now recording your song... this go take 2-3 minutes ⏳`);
+
+    const { publicUrl, title: songTitle } = await musicSvc.generateSong({
+      sunoPrompt,
+      lyrics,
+      title,
+    });
+
+    await wa.sendAudio(phone, publicUrl);
+    await wa.sendText(
+      phone,
+      `🎵 *${songTitle}*\n\nYour song don ready! 🔥\n\nSave am and share am on WhatsApp Status — make your people hear am! 💚\n\n_Made with NaijaMeme Bot 🎨🎵_`
+    );
+
+    await pool.query(
+      'UPDATE users SET total_orders = total_orders + 1, updated_at = NOW() WHERE phone = $1',
+      [phone]
+    );
+
+    // If bundle mode, now start the flyer flow
+    if (freshSession.mode === 'bundle') {
+      await wa.sendText(phone, '🖼️ Now let\'s create your flyer! Which category fits best?');
+      await sessionSvc.updateSession(session.id, { state: 'MENU' });
+      return sendMenu(phone);
+    }
+
+    return askForFeedback(phone, session.id);
+
+  } catch (err) {
+    console.error('Song generation error:', err.message);
+    await wa.sendText(
+      phone,
+      '❌ Something went wrong generating your song. Type *menu* to try again. Your payment is saved.'
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// FEEDBACK (shared)
+// ══════════════════════════════════════════════════════
 
 async function askForFeedback(phone, sessionId) {
   await sessionSvc.updateSession(sessionId, { state: 'AWAITING_FEEDBACK_RATING' });
@@ -981,24 +1160,15 @@ async function handleFeedbackRating(phone, session, message) {
   const rating = ratingMap[selected];
 
   if (!rating) {
-    return wa.sendList(
-      phone,
-      '💬 Quick Feedback',
-      'Please pick a rating from the list:',
-      'Rate Us',
-      [
-        {
-          title: 'Your Rating',
-          rows: [
-            { id: 'RATING_5', title: '⭐⭐⭐⭐⭐ Excellent' },
-            { id: 'RATING_4', title: '⭐⭐⭐⭐ Good' },
-            { id: 'RATING_3', title: '⭐⭐⭐ Okay' },
-            { id: 'RATING_2', title: '⭐⭐ Not Great' },
-            { id: 'RATING_1', title: '⭐ Poor' },
-          ],
-        },
-      ]
-    );
+    return wa.sendList(phone, '💬 Quick Feedback', 'Please pick a rating from the list:', 'Rate Us', [
+      { title: 'Your Rating', rows: [
+        { id: 'RATING_5', title: '⭐⭐⭐⭐⭐ Excellent' },
+        { id: 'RATING_4', title: '⭐⭐⭐⭐ Good' },
+        { id: 'RATING_3', title: '⭐⭐⭐ Okay' },
+        { id: 'RATING_2', title: '⭐⭐ Not Great' },
+        { id: 'RATING_1', title: '⭐ Poor' },
+      ]},
+    ]);
   }
 
   await sessionSvc.updateSession(session.id, { feedback_rating: rating, state: 'AWAITING_FEEDBACK_COMMENT' });
@@ -1022,11 +1192,6 @@ async function handleFeedbackComment(phone, session, message) {
     [session.id, phone, session.category, session.feedback_rating, comment]
   );
 
-  // Forward low ratings or any comment to the admin immediately, so
-  // real complaints/suggestions don't sit unseen in the database.
-  // Uses the same digits-only format as the proven escalateToAdmin
-  // pattern in routes/payment.js, rather than guessing at a different
-  // format that might not actually deliver.
   if (session.feedback_rating <= 3 || comment) {
     const stars = '⭐'.repeat(session.feedback_rating);
     const alertMsg = `📋 *New Feedback*\n\nFrom: ${phone}\nCategory: ${session.category}\nRating: ${stars} (${session.feedback_rating}/5)\n${comment ? `Comment: "${comment}"` : 'No comment left'}`;

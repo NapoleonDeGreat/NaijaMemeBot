@@ -26,7 +26,7 @@ async function createSession(phone) {
     [phone]
   );
   const result = await pool.query(
-    `INSERT INTO sessions (phone, state) VALUES ($1, 'MENU') RETURNING *`,
+    `INSERT INTO sessions (phone, state) VALUES ($1, 'MAIN_MENU') RETURNING *`,
     [phone]
   );
   return result.rows[0];

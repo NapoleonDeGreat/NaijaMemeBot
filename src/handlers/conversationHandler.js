@@ -13,10 +13,6 @@ const { v4: uuidv4 } = require('uuid');
 
 const ADMIN_PHONE = '2349067140564';
 
-// ══════════════════════════════════════════════════════
-// CATEGORY MAPS
-// ══════════════════════════════════════════════════════
-
 const CATEGORIES = {
   CAT_thank_you: 'thank_you',
   CAT_apology: 'apology',
@@ -126,10 +122,10 @@ const STRUCTURED_QUESTIONS = {
 const PHOTO_ROLES = {
   birthday: [{ role: 'celebrant_photo', label: "the celebrant's photo", required: false }],
   naming_ceremony: [{ role: 'baby_or_parents_photo', label: "a photo of the baby or parents", required: false }],
-  wedding: [{ role: 'couple_photo', label: "a photo of the couple together (both bride and groom in one image)", required: false }],
+  wedding: [{ role: 'couple_photo', label: "a photo of the couple together", required: false }],
   church: [
     { role: 'host_photo', label: "the host/pastor's photo", required: false },
-    { role: 'guest_minister_photo', label: "the guest minister's photo (if different from host)", required: false },
+    { role: 'guest_minister_photo', label: "the guest minister's photo", required: false },
   ],
   political: [{ role: 'candidate_photo', label: "the candidate's photo", required: false }],
 };
@@ -173,10 +169,7 @@ async function handleIncomingMessage(phone, message, messageId) {
   }
 
   switch (session.state) {
-    // Main menu
     case 'MAIN_MENU': return handleMainMenuSelection(phone, session, message);
-
-    // Flyer states
     case 'MENU': return handleMenuSelection(phone, session, message);
     case 'STRUCTURED_QA': return handleStructuredAnswer(phone, session, message);
     case 'AWAITING_PHOTO_DECISION': return handlePhotoDecision(phone, session, message);
@@ -193,19 +186,14 @@ async function handleIncomingMessage(phone, message, messageId) {
     case 'AWAITING_VOICE': return handleVoiceInput(phone, session, message);
     case 'AWAITING_PAYMENT': return handlePaymentCheck(phone, session, message);
     case 'AWAITING_SHOUTOUT': return handleShoutoutDecision(phone, session, message);
-
-    // Music states
     case 'MUSIC_GENRE': return handleMusicGenre(phone, session, message);
     case 'MUSIC_OCCASION': return handleMusicOccasion(phone, session, message);
     case 'MUSIC_PERSON_NAME': return handleMusicPersonName(phone, session, message);
     case 'MUSIC_LANGUAGE': return handleMusicLanguage(phone, session, message);
     case 'MUSIC_STORY': return handleMusicStory(phone, session, message);
     case 'MUSIC_AWAITING_PAYMENT': return handleMusicPaymentCheck(phone, session, message);
-
-    // Shared
     case 'AWAITING_FEEDBACK_RATING': return handleFeedbackRating(phone, session, message);
     case 'AWAITING_FEEDBACK_COMMENT': return handleFeedbackComment(phone, session, message);
-
     default: return sendMainMenu(phone);
   }
 }
@@ -222,7 +210,7 @@ async function sendMainMenu(phone) {
     'Choose',
     [
       {
-        title: 'What do you want to create?',
+        title: 'Create something',
         rows: [
           { id: 'MAIN_FLYER', title: '🖼️ Create a Flyer' },
           { id: 'MAIN_SONG', title: '🎵 Create a Song' },
@@ -256,21 +244,21 @@ async function handleMainMenuSelection(phone, session, message) {
 }
 
 // ══════════════════════════════════════════════════════
-// FLYER FLOW (unchanged from original)
+// FLYER FLOW
 // ══════════════════════════════════════════════════════
 
 async function sendMenu(phone) {
   await wa.sendList(
     phone,
     '🎨 NaijaMeme Bot',
-    'What type of flyer do you want to create?\n\nPick a category below 👇 (more categories in the next message)',
+    'What type of flyer do you want?\n\nPick a category 👇',
     'Choose Category',
     [
       {
         title: 'Personal Messages',
         rows: [
-          { id: 'CAT_thank_you', title: '🙏 Thank You Message' },
-          { id: 'CAT_apology', title: '😔 Apology Message' },
+          { id: 'CAT_thank_you', title: '🙏 Thank You' },
+          { id: 'CAT_apology', title: '😔 Apology' },
           { id: 'CAT_ask_money', title: '💸 Ask for Money' },
           { id: 'CAT_relationship', title: '💔 Shoot Your Shot' },
           { id: 'CAT_congratulations', title: '🎉 Congratulations' },
@@ -290,7 +278,7 @@ async function sendMenu(phone) {
   await wa.sendList(
     phone,
     '🎨 More Categories',
-    'Business, church, and special categories 👇',
+    'Business, church & special 👇',
     'Choose Category',
     [
       {
@@ -322,7 +310,7 @@ async function handleMenuSelection(phone, session, message) {
       category,
       structured_step: 0,
     });
-    await wa.sendText(phone, `${CATEGORY_LABELS[category]} selected! ✅\n\nLet's get the details right so your flyer looks professional. A few quick questions 👇`);
+    await wa.sendText(phone, `${CATEGORY_LABELS[category]} selected! ✅\n\nA few quick questions to make your flyer look professional 👇`);
     return wa.sendText(phone, questions[0].prompt);
   }
 
@@ -361,7 +349,7 @@ async function startPhotoFlow(phone, sessionId) {
     await sessionSvc.updateSession(sessionId, { state: 'AWAITING_LOGO_DECISION' });
     return wa.sendButtons(
       phone,
-      `✅ Got all the details!\n\nDo you have a *business logo* to upload? If you don't have one yet, we'll create a simple one for your design.`,
+      `✅ Got all the details!\n\nDo you have a *business logo* to upload?`,
       [
         { id: 'LOGO_YES', title: '🖼️ Upload Logo' },
         { id: 'LOGO_SKIP', title: '✨ Create One For Me' },
@@ -375,7 +363,7 @@ async function startPhotoFlow(phone, sessionId) {
   const firstRole = roles[0];
   return wa.sendButtons(
     phone,
-    `✅ Got all the details!\n\nWant to upload ${firstRole.label}? Real photos make the design look personal and premium.`,
+    `✅ Got all the details!\n\nWant to upload ${firstRole.label}? Real photos make designs look personal and premium.`,
     [
       { id: 'PHOTO_YES', title: '📸 Upload Photo' },
       { id: 'PHOTO_SKIP', title: '⏭️ Skip' },
@@ -410,15 +398,15 @@ async function handleLogoUpload(phone, session, message) {
     return askForProductPhotos(phone, session.id, false);
   } catch (err) {
     console.error('Logo upload error:', err.message);
-    return wa.sendText(phone, '⚠️ Could not save that logo. Type *skip* to continue, or try sending it again.');
+    return wa.sendText(phone, '⚠️ Could not save that logo. Type *skip* to continue.');
   }
 }
 
 async function askForProductPhotos(phone, sessionId, isFirstAsk) {
   await sessionSvc.updateSession(sessionId, { state: 'AWAITING_PRODUCT_PHOTO_DECISION' });
   const prompt = isFirstAsk
-    ? `No wahala! Now -- want to upload *product or shop photos*? You can add up to 6 to show off your range.`
-    : `Want to add *another product photo*? You can add up to 6 total.`;
+    ? `No wahala! Want to upload *product or shop photos*? You can add up to 6.`
+    : `Want to add *another product photo*? Up to 6 total.`;
   return wa.sendButtons(phone, prompt, [
     { id: 'PRODUCT_PHOTO_YES', title: '📸 Add Photo' },
     { id: 'PRODUCT_PHOTO_DONE', title: '✅ Done Adding' },
@@ -434,7 +422,7 @@ async function handleProductPhotoDecision(phone, session, message) {
       currentCount = urls.length;
     } catch { currentCount = 0; }
     if (currentCount >= 6) {
-      await wa.sendText(phone, "That's 6 photos already, the max for one design! Moving on...");
+      await wa.sendText(phone, "That's 6 photos already, the max! Moving on...");
       return proceedPastPhotos(phone, session.id);
     }
     await sessionSvc.updateSession(session.id, { state: 'AWAITING_PRODUCT_PHOTO_UPLOAD' });
@@ -458,7 +446,7 @@ async function handleProductPhotoUpload(phone, session, message) {
     return askForProductPhotos(phone, session.id, false);
   } catch (err) {
     console.error('Product photo upload error:', err.message);
-    return wa.sendText(phone, '⚠️ Could not save that photo. Try sending it again, or type *skip*.');
+    return wa.sendText(phone, '⚠️ Could not save that photo. Try again or type *skip*.');
   }
 }
 
@@ -512,7 +500,7 @@ async function handlePhotoDecision(phone, session, message) {
 
 async function handlePhotoUpload(phone, session, message) {
   if (message.type !== 'image') {
-    return wa.sendText(phone, '⚠️ Please send a photo as an image, or type *skip* to continue without one.');
+    return wa.sendText(phone, '⚠️ Please send a photo as an image, or type *skip* to continue.');
   }
   await wa.sendText(phone, '⏳ Got your photo! Saving it...');
   try {
@@ -546,7 +534,7 @@ async function handlePhotoUpload(phone, session, message) {
     return advancePhotoRoleOrContinue(phone, session.id, roleStep);
   } catch (err) {
     console.error('Photo upload error:', err.message);
-    await wa.sendText(phone, '⚠️ Could not save that photo. Type *skip* to continue without one, or try sending it again.');
+    await wa.sendText(phone, '⚠️ Could not save that photo. Type *skip* to continue.');
   }
 }
 
@@ -579,7 +567,7 @@ async function proceedPastPhotos(phone, sessionId) {
     await sessionSvc.updateSession(sessionId, { state: 'AWAITING_OUTFIT_PREFERENCE' });
     return wa.sendButtons(
       phone,
-      `📸 Got the photo(s)! One more thing -- for the design, should we *keep the exact outfit* from your photo, or *upgrade it* to suit the flyer style?`,
+      `📸 Got the photo(s)! Should we *keep the exact outfit* or *upgrade it* to suit the flyer style?`,
       [
         { id: 'OUTFIT_KEEP', title: '👕 Keep Outfit' },
         { id: 'OUTFIT_UPGRADE', title: '✨ Upgrade Outfit' },
@@ -619,7 +607,7 @@ async function askLanguage(phone, sessionId) {
   return wa.sendList(
     phone,
     '🎤 Voice Note Language',
-    'What language will you record your voice note in? This helps us transcribe it accurately.',
+    'What language will you record your voice note in?',
     'Choose Language',
     [{ title: 'Languages', rows: LANGUAGE_OPTIONS }]
   );
@@ -637,14 +625,14 @@ async function handleLanguageSelection(phone, session, message) {
   const voiceLanguage = langMap[selected];
 
   if (!voiceLanguage) {
-    return wa.sendList(phone, '🎤 Voice Note Language', 'Please choose a language from the list:', 'Choose Language',
+    return wa.sendList(phone, '🎤 Voice Note Language', 'Please choose a language:', 'Choose Language',
       [{ title: 'Languages', rows: LANGUAGE_OPTIONS }]);
   }
 
   await sessionSvc.updateSession(session.id, { voice_language: voiceLanguage, state: 'AWAITING_VOICE' });
   await wa.sendButtons(
     phone,
-    `🎤 Now send a voice note and watch your meme unfold like magic! ✨\n\nTell us what you want to say -- we go turn am to something beautiful.\n\nOr type your message if you prefer.`,
+    `🎤 Send a voice note and watch your meme unfold! ✨\n\nTell us what you want to say.\n\nOr type your message if you prefer.`,
     [{ id: 'TYPE_MESSAGE', title: '⌨️ Type Instead' }]
   );
 }
@@ -688,7 +676,7 @@ async function handleVoiceInput(phone, session, message) {
 
   if (btnId === 'TYPE_MESSAGE') {
     await sessionSvc.updateSession(session.id, { state: 'AWAITING_VOICE' });
-    return wa.sendText(phone, '⌨️ Type your message now -- tell us what you want to say:');
+    return wa.sendText(phone, '⌨️ Type your message now:');
   }
 
   if (message.type === 'audio') {
@@ -764,7 +752,7 @@ async function handlePaymentCheck(phone, session, message) {
 
 async function generateAndSend(phone, session, triggeringMessageId) {
   if (triggeringMessageId) await wa.markRead(triggeringMessageId, true);
-  await wa.sendText(phone, '🎨 Payment confirmed! Creating your unique meme now...\n\n_This usually takes 1-3 minutes for premium quality ✨_');
+  await wa.sendText(phone, '🎨 Payment confirmed! Creating your unique meme now...\n\n_This usually takes 1-3 minutes ✨_');
   await sessionSvc.updateSession(session.id, { state: 'GENERATING' });
 
   try {
@@ -794,19 +782,19 @@ async function generateAndSend(phone, session, triggeringMessageId) {
     await wa.sendImage(phone, publicUrl, caption);
 
     const thankYouMessages = {
-      birthday: `🎂 *${freshSession.celebrant_name || freshSession.recipient_name}* go smile well well when dem see this -- you don show say you care. That na the real gift sometimes, not the card, na the thought wey dey behind am. Enjoy the celebration! 🙏✨`,
-      wedding: `💍 Una don create something beautiful to mark this love story. Years from now, una go still dey look back on this moment. We honoured say you choose us to be part of am 🙏✨`,
-      naming_ceremony: `👶 A new name, a new life, a new beginning -- and you don capture am beautifully. God bless this child and everyone wey go gather to celebrate am 🙏`,
-      church: `⛪ This na more than a flyer -- na an invitation for people to encounter God. We pray say many souls go answer this call and your ministry go grow more more 🙏🔥`,
-      business_advert: `📢 Your business just got a piece wey go make people stop and look. Every great brand started small -- this na one more step toward the business you dey build. We dey root for you 💪🙏`,
-      customer_appreciation: `⭐ The customer wey go see this go feel am for their heart. Loyalty no dey cheap -- and the fact say you took time to celebrate them go mean everything. Na people like you dey build real businesses 🙏`,
-      political: `🗳️ Leadership start with people seeing your vision clearly -- and now they fit see am. We dey hope say this go carry your message far and touch the hearts wey need to hear am 🙏`,
-      academic: `🎓 All the late nights, the hard work, the sacrifice -- e don pay off, and now the world fit see am too. This moment na yours, celebrate am well 🙏✨`,
-      thank_you: `🙏 Sometimes the people wey deserve appreciation no dey hear am enough. You just made sure that wasn't the case today. That kindness go reach them well 💚`,
-      congratulations: `🎉 Every win deserve to be celebrated loud -- and now it is. May this just be the beginning of many more testimonies for them 💚`,
-      apology: `😔 It take courage to say sorry well. Whatever happen, we hope say this opens the door for healing and understanding. Things fit still work out 🙏`,
-      ask_money: `💸 Asking for help no easy, but you don put am out there in a way wey go land soft. We dey hope say everything works out for you 😄🙏`,
-      relationship: `💔 You don shoot your shot -- and that already take guts. Whatever happens next, at least they go know exactly how you feel. We dey root for you 🎯😄`,
+      birthday: `🎂 *${freshSession.celebrant_name || freshSession.recipient_name}* go smile well well when dem see this -- you don show say you care. Enjoy the celebration! 🙏✨`,
+      wedding: `💍 Una don create something beautiful to mark this love story. We honoured say you choose us 🙏✨`,
+      naming_ceremony: `👶 A new name, a new life -- God bless this child and everyone wey go gather to celebrate am 🙏`,
+      church: `⛪ This na more than a flyer -- na an invitation to encounter God. We pray many souls go answer this call 🙏🔥`,
+      business_advert: `📢 Your business just got a piece wey go make people stop and look. We dey root for you 💪🙏`,
+      customer_appreciation: `⭐ That customer go feel am for their heart. Na people like you dey build real businesses 🙏`,
+      political: `🗳️ Leadership start with people seeing your vision -- now they fit see am 🙏`,
+      academic: `🎓 All the late nights, the sacrifice -- e don pay off. This moment na yours 🙏✨`,
+      thank_you: `🙏 Sometimes people wey deserve appreciation no dey hear am enough. You just fixed that 💚`,
+      congratulations: `🎉 Every win deserve to be celebrated loud -- and now it is 💚`,
+      apology: `😔 It take courage to say sorry well. We hope this opens the door for healing 🙏`,
+      ask_money: `💸 You don put am out there in a way wey go land soft. We hope everything works out 😄🙏`,
+      relationship: `💔 You don shoot your shot -- that already take guts. We dey root for you 🎯😄`,
     };
     const thankYou = thankYouMessages[freshSession.category] || `🙏 We're genuinely glad we could help bring this to life for you.`;
     await wa.sendText(phone, thankYou);
@@ -824,7 +812,7 @@ async function generateAndSend(phone, session, triggeringMessageId) {
 
     await wa.sendButtons(
       phone,
-      `✅ Your flyer don land! 🔥\n\nWant a *voice shoutout* to go with it? We go record the caption in a dramatic Nigerian accent! 🎤\n\n_Just ₦200 extra_`,
+      `✅ Your flyer don land! 🔥\n\nWant a *voice shoutout* to go with it? 🎤\n\n_Just ₦200 extra_`,
       [
         { id: 'SHOUTOUT_YES', title: '🎤 Yes! Add Shoutout' },
         { id: 'SHOUTOUT_NO', title: '✅ No, Am Good' },
@@ -833,7 +821,7 @@ async function generateAndSend(phone, session, triggeringMessageId) {
   } catch (err) {
     console.error('Generation error:', err.message);
     await sessionSvc.updateSession(session.id, { state: 'DONE' });
-    await wa.sendText(phone, '❌ Something went wrong generating your meme. Type *menu* to try again. Your payment is saved.');
+    await wa.sendText(phone, '❌ Something went wrong. Type *menu* to try again. Your payment is saved.');
   }
 }
 
@@ -864,11 +852,11 @@ async function sendMusicGenreMenu(phone) {
         rows: [
           { id: 'GENRE_afrobeats', title: '🔥 Afrobeats' },
           { id: 'GENRE_amapiano', title: '🎹 Amapiano' },
-          { id: 'GENRE_igbo_highlife', title: '🥁 Igbo Highlife + Ogene' },
+          { id: 'GENRE_igbo_highlife', title: '🥁 Igbo Highlife+Ogene' },
           { id: 'GENRE_yoruba_juju', title: '🎸 Yoruba Juju/Praise' },
           { id: 'GENRE_gospel', title: '🙏 Nigerian Gospel' },
-          { id: 'GENRE_street_pop', title: '🎤 Street Pop (Asake style)' },
-          { id: 'GENRE_pidgin_mix', title: '🌍 Pidgin + Yoruba Mix' },
+          { id: 'GENRE_street_pop', title: '🎤 Street Pop/Asake' },
+          { id: 'GENRE_pidgin_mix', title: '🌍 Pidgin+Yoruba Mix' },
         ],
       },
     ]
@@ -903,13 +891,13 @@ async function handleMusicGenre(phone, session, message) {
         rows: [
           { id: 'OCC_birthday', title: '🎂 Birthday' },
           { id: 'OCC_wedding', title: '💍 Wedding' },
-          { id: 'OCC_owambe', title: '🎉 Owambe/Party Hype' },
+          { id: 'OCC_owambe', title: '🎉 Owambe/Party' },
           { id: 'OCC_graduation', title: '🎓 Graduation' },
           { id: 'OCC_church', title: '⛪ Church/Testimony' },
           { id: 'OCC_business', title: '📢 Business Jingle' },
           { id: 'OCC_love', title: '❤️ Love/Dedication' },
           { id: 'OCC_motivation', title: '💪 Motivation/Hustle' },
-          { id: 'OCC_banter', title: '😂 Banter/Roast a Friend' },
+          { id: 'OCC_banter', title: '😂 Banter/Roast' },
           { id: 'OCC_custom', title: '✏️ Something Else' },
         ],
       },
@@ -952,19 +940,19 @@ async function handleMusicPersonName(phone, session, message) {
   return wa.sendList(
     phone,
     '🗣️ Song Language',
-    'Which language should the song be in?',
+    'Which language for the song?',
     'Pick Language',
     [
       {
         title: 'Languages',
         rows: [
-          { id: 'MLANG_pidgin', title: '🇳🇬 Nigerian Pidgin (₦1,000)' },
+          { id: 'MLANG_pidgin', title: '🇳🇬 Pidgin (₦1,000)' },
           { id: 'MLANG_english', title: '🌍 English (₦1,000)' },
           { id: 'MLANG_igbo', title: 'Igbo (₦1,500)' },
           { id: 'MLANG_yoruba', title: 'Yoruba (₦1,500)' },
           { id: 'MLANG_hausa', title: 'Hausa (₦1,500)' },
-          { id: 'MLANG_pidgin_yoruba', title: '🔀 Pidgin + Yoruba Mix (₦1,500)' },
-          { id: 'MLANG_pidgin_igbo', title: '🔀 Pidgin + Igbo Mix (₦1,500)' },
+          { id: 'MLANG_pidgin_yoruba', title: '🔀 Pidgin+Yoruba (₦1,500)' },
+          { id: 'MLANG_pidgin_igbo', title: '🔀 Pidgin+Igbo (₦1,500)' },
         ],
       },
     ]
@@ -990,7 +978,7 @@ async function handleMusicLanguage(phone, session, message) {
 
   await wa.sendButtons(
     phone,
-    `🎤 Last step! Tell me the *story or message* for this song.\n\nThe more details you give, the more personal and powerful your song will be 🔥\n\n_e.g. "My friend Tunde just got his first job at GTBank after 2 years of hustling. He's from Ibadan. Make something that hypes him up mad"_\n\nOr send a voice note 🎙️`,
+    `🎤 Last step! Tell me the *story or message* for this song.\n\nThe more details, the more personal and powerful your song will be 🔥\n\n_e.g. "My friend Tunde just got his first job at GTBank after 2 years of hustling. He's from Ibadan. Hype him up!"_\n\nOr send a voice note 🎙️`,
     [{ id: 'MUSIC_TYPE_INSTEAD', title: '⌨️ Type Message' }]
   );
 }
@@ -1031,7 +1019,6 @@ async function triggerMusicPayment(phone, session) {
   }
 
   try {
-    // Determine price tier based on language
     const freshSession = await sessionSvc.getSessionById(session.id);
     const isPremium = isPremiumLanguage(freshSession.music_language);
     const category = session.mode === 'bundle' ? 'bundle' : (isPremium ? 'music_premium' : 'music_quick');
@@ -1082,7 +1069,7 @@ async function handleMusicPaymentCheck(phone, session, message) {
 async function generateAndSendSong(phone, session) {
   await wa.sendText(
     phone,
-    '🎵 Payment confirmed! Creating your personalised Nigerian song now...\n\n_This usually takes 2-3 minutes. We dey cook something special for you_ 🔥'
+    '🎵 Payment confirmed! Creating your personalised Nigerian song now...\n\n_This usually takes 2-3 minutes. We dey cook something special_ 🔥'
   );
 
   try {
@@ -1091,7 +1078,7 @@ async function generateAndSendSong(phone, session) {
     await wa.sendText(phone, '✍️ Writing your lyrics...');
     const { lyrics, sunoPrompt, title, previewLine } = await buildMusicPrompt(freshSession);
 
-    await wa.sendText(phone, `📝 Lyrics don ready!\n\n_"${previewLine}"_\n\n🎼 Now recording your song... this go take 2-3 minutes ⏳`);
+    await wa.sendText(phone, `📝 Lyrics don ready!\n\n_"${previewLine}"_\n\n🎼 Now recording your song... 2-3 minutes ⏳`);
 
     const { publicUrl, title: songTitle } = await musicSvc.generateSong({
       sunoPrompt,
@@ -1102,7 +1089,7 @@ async function generateAndSendSong(phone, session) {
     await wa.sendAudio(phone, publicUrl);
     await wa.sendText(
       phone,
-      `🎵 *${songTitle}*\n\nYour song don ready! 🔥\n\nSave am and share am on WhatsApp Status — make your people hear am! 💚\n\n_Made with NaijaMeme Bot 🎨🎵_`
+      `🎵 *${songTitle}*\n\nYour song don ready! 🔥\n\nSave am and share am on WhatsApp Status 💚\n\n_Made with NaijaMeme Bot 🎨🎵_`
     );
 
     await pool.query(
@@ -1110,7 +1097,6 @@ async function generateAndSendSong(phone, session) {
       [phone]
     );
 
-    // If bundle mode, now start the flyer flow
     if (freshSession.mode === 'bundle') {
       await wa.sendText(phone, '🖼️ Now let\'s create your flyer! Which category fits best?');
       await sessionSvc.updateSession(session.id, { state: 'MENU' });
@@ -1129,7 +1115,7 @@ async function generateAndSendSong(phone, session) {
 }
 
 // ══════════════════════════════════════════════════════
-// FEEDBACK (shared)
+// FEEDBACK
 // ══════════════════════════════════════════════════════
 
 async function askForFeedback(phone, sessionId) {
@@ -1137,7 +1123,7 @@ async function askForFeedback(phone, sessionId) {
   return wa.sendList(
     phone,
     '💬 Quick Feedback',
-    'Before you go -- how was your experience today? Your honest rating helps us improve 🙏',
+    'How was your experience? Your honest rating helps us improve 🙏',
     'Rate Us',
     [
       {
@@ -1160,7 +1146,7 @@ async function handleFeedbackRating(phone, session, message) {
   const rating = ratingMap[selected];
 
   if (!rating) {
-    return wa.sendList(phone, '💬 Quick Feedback', 'Please pick a rating from the list:', 'Rate Us', [
+    return wa.sendList(phone, '💬 Quick Feedback', 'Please pick a rating:', 'Rate Us', [
       { title: 'Your Rating', rows: [
         { id: 'RATING_5', title: '⭐⭐⭐⭐⭐ Excellent' },
         { id: 'RATING_4', title: '⭐⭐⭐⭐ Good' },
@@ -1175,7 +1161,7 @@ async function handleFeedbackRating(phone, session, message) {
 
   const followUp = rating <= 3
     ? `Thanks for the honesty 🙏 What could we have done better? Type your thoughts, or type *skip*.`
-    : `🙌 We're glad you enjoyed it! Any suggestions or comments? Type them now, or type *skip*.`;
+    : `🙌 Glad you enjoyed it! Any suggestions? Type them now, or type *skip*.`;
 
   return wa.sendText(phone, followUp);
 }
@@ -1200,7 +1186,7 @@ async function handleFeedbackComment(phone, session, message) {
 
   await wa.sendButtons(
     phone,
-    `🙏 Thank you for your feedback! It genuinely helps us get better.\n\nWant to create another design?`,
+    `🙏 Thank you for your feedback! It genuinely helps us get better.\n\nWant to create another?`,
     [{ id: 'RESTART', title: '🔄 Create Another' }]
   );
 }

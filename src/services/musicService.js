@@ -12,20 +12,18 @@ function getHeaders() {
   };
 }
 
-const MAX_POLL_ATTEMPTS = 60; // 60 × 5s = 5 minutes max
+const MAX_POLL_ATTEMPTS = 60;
 const POLL_INTERVAL_MS = 5000;
 
 async function generateSong({ sunoPrompt, lyrics, title }) {
-  // Step 1: Submit task
   const input = {
     gpt_description_prompt: sunoPrompt,
     make_instrumental: false,
   };
 
-  // Pass custom lyrics if provided
   if (lyrics) {
     input.prompt = lyrics;
-    input.mv = 'chirp-v5-5'; // Suno v5.5 model
+    input.mv = 'chirp-v5-5';
   }
 
   const submitResponse = await axios.post(
@@ -38,12 +36,18 @@ async function generateSong({ sunoPrompt, lyrics, title }) {
     { headers: getHeaders() }
   );
 
-  const taskId = submitResponse.data?.task_id || submitResponse.data?.data?.task_id;
+  console.log(`Sunor submit response: ${JSON.stringify(submitResponse.data)}`);
+
+  const taskId =
+    submitResponse.data?.task_id ||
+    submitResponse.data?.data?.task_id ||
+    submitResponse.data?.id ||
+    submitResponse.data?.data?.id;
+
   if (!taskId) throw new Error(`Sunor: no task_id in response: ${JSON.stringify(submitResponse.data)}`);
 
   console.log(`Sunor task submitted: ${taskId}`);
 
-  // Step 2: Poll for result
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     await sleep(POLL_INTERVAL_MS);
 
@@ -53,20 +57,36 @@ async function generateSong({ sunoPrompt, lyrics, title }) {
     );
 
     const data = pollResponse.data;
-    const status = data?.status;
+
+    // Log full response on first 3 attempts to see structure
+    if (attempt < 3) {
+      console.log(`Sunor full response attempt ${attempt + 1}: ${JSON.stringify(data)}`);
+    }
+
+    const status =
+      data?.status ||
+      data?.data?.status ||
+      data?.task?.status;
+
     console.log(`Sunor poll attempt ${attempt + 1}: status=${status}`);
 
     if (status === 'success') {
-      const clips = data?.output?.result;
+      const clips =
+        data?.output?.result ||
+        data?.data?.output?.result ||
+        data?.result ||
+        data?.data?.result ||
+        data?.clips ||
+        data?.data?.clips;
+
       if (!clips || !clips.length) {
-        throw new Error('Sunor: success but no clips in output.result');
+        throw new Error(`Sunor: success but no clips found. Full response: ${JSON.stringify(data)}`);
       }
 
       const clip = clips[0];
-      const audioUrl = clip.audio_url;
-      if (!audioUrl) throw new Error('Sunor: no audio_url in clip');
+      const audioUrl = clip.audio_url || clip.url || clip.audio;
+      if (!audioUrl) throw new Error(`Sunor: no audio_url in clip: ${JSON.stringify(clip)}`);
 
-      // Download MP3 to local storage
       const localPath = await downloadAudio(audioUrl);
       const publicUrl = audioUrlToPublic(localPath);
 
@@ -79,10 +99,9 @@ async function generateSong({ sunoPrompt, lyrics, title }) {
       };
     }
 
-    if (status === 'failure' || status === 'timeout') {
+    if (status === 'failure' || status === 'timeout' || status === 'failed') {
       throw new Error(`Sunor generation ${status}: ${JSON.stringify(data)}`);
     }
-    // Still pending — keep polling
   }
 
   throw new Error('Sunor: generation timed out after 5 minutes');

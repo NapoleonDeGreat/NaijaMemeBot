@@ -6,10 +6,6 @@ const HEADERS = {
   'Content-Type': 'application/json',
 };
 
-// WhatsApp Cloud API hard limit: list messages cap at 10 rows TOTAL
-// across all sections combined. Exceeding this returns a 400 with no
-// useful detail unless we log the response body, so we guard for it
-// here and log the real Meta error message everywhere else too.
 const MAX_LIST_ROWS = 10;
 
 function logApiError(context, err) {
@@ -106,17 +102,26 @@ async function sendImage(to, imageUrl, caption) {
   }
 }
 
+async function sendAudio(to, audioUrl) {
+  try {
+    return await axios.post(`${BASE_URL}/messages`, {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'audio',
+      audio: { link: audioUrl },
+    }, { headers: HEADERS });
+  } catch (err) {
+    logApiError('sendAudio', err);
+    throw err;
+  }
+}
+
 async function markRead(messageId, showTyping = false) {
   const body = {
     messaging_product: 'whatsapp',
     status: 'read',
     message_id: messageId,
   };
-  // Real WhatsApp typing indicator (Meta Cloud API). Shows the genuine
-  // "typing..." bubble on the user's device, not a simulated delay.
-  // Lasts up to 25 seconds or until the next message is sent, whichever
-  // comes first -- so it's most useful for the start of a wait, not a
-  // full 1-3 minute generation window.
   if (showTyping) {
     body.typing_indicator = { type: 'text' };
   }
@@ -141,4 +146,4 @@ async function downloadMedia(mediaId) {
   }
 }
 
-module.exports = { sendText, sendButtons, sendList, sendImage, markRead, downloadMedia };
+module.exports = { sendText, sendButtons, sendList, sendImage, sendAudio, markRead, downloadMedia };

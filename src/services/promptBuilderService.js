@@ -1,6 +1,5 @@
-const Anthropic = require('@anthropic-ai/sdk');
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const OpenAI = require('openai');
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const GENRE_CONFIGS = {
   afrobeats: {
@@ -24,7 +23,7 @@ const GENRE_CONFIGS = {
     vibe: 'powerful Nigerian gospel thanksgiving',
   },
   street_pop: {
-    sunoTags: 'Nigerian street pop, Asake style, street energy, agbadá boys sound, talking drum samples, trap hi-hats, melodic vocals, Pidgin English',
+    sunoTags: 'Nigerian street pop, Asake style, street energy, talking drum samples, trap hi-hats, melodic vocals, Pidgin English',
     vibe: 'raw Nigerian street pop energy',
   },
   pidgin_mix: {
@@ -33,8 +32,13 @@ const GENRE_CONFIGS = {
   },
 };
 
-// Which languages are premium tier (₦1,500)
-const PREMIUM_LANGUAGES = ['Igbo', 'Yoruba', 'Hausa', 'Nigerian Pidgin mixed with Yoruba naturally', 'Nigerian Pidgin mixed with Igbo naturally'];
+const PREMIUM_LANGUAGES = [
+  'Igbo',
+  'Yoruba',
+  'Hausa',
+  'Nigerian Pidgin mixed with Yoruba naturally',
+  'Nigerian Pidgin mixed with Igbo naturally',
+];
 
 function isPremiumLanguage(language) {
   return PREMIUM_LANGUAGES.some(l => language?.includes(l.split(' ')[0]));
@@ -51,29 +55,27 @@ async function buildMusicPrompt(session) {
   const systemPrompt = `You are a professional Nigerian music lyricist and Suno AI prompt engineer with deep knowledge of Nigerian cultures.
 
 Your expertise:
-- Pidgin English: natural flow, street expressions, correct Nigerian cadence, "e don happen", "na so e be", "omo"
+- Pidgin English: natural flow, street expressions, correct Nigerian cadence
 - Igbo: correct grammar, praise names (Nna m, Nne m, Ọ dị mma, Chineke), proverbs, Anambra/Enugu/Imo dialects, ogene call-and-response patterns
-- Yoruba: correct tones implied through spelling, oriki (praise poetry), "omo", "e ma worry", cultural expressions, juju music phrasing
-- Hausa: natural warm phrasing, cultural expressions
-- How real Nigerian artists mix languages: Burna Boy (Pidgin/Yoruba/English), Asake (Yoruba/Pidgin), Davido (Pidgin/English)
+- Yoruba: correct tones, oriki praise poetry, cultural expressions, juju music phrasing
+- Hausa: natural warm phrasing and cultural expressions
+- How real Nigerian artists mix languages naturally (Burna Boy, Asake, Davido style)
 
 Suno AI technical knowledge:
-- Use [Verse], [Chorus], [Bridge], [Outro] tags
+- Use [Verse], [Chorus], [Bridge], [Outro] structure tags
 - Keep total lyrics to 60-90 seconds when sung (roughly 150-200 words)
-- Suno performs best with clear structure and repetitive chorus hooks
 - For Igbo with ogene: write short punchy lines that suit call-and-response
 - For Yoruba juju: write in praise-singing oriki style with repetition
 
-CRITICAL: Return ONLY valid JSON. No markdown. No explanation. No code fences. Just the raw JSON object.
-
+Return ONLY valid JSON. No markdown. No explanation. No code fences. Raw JSON only:
 {
   "lyrics": "full song lyrics with section tags",
-  "sunoPrompt": "complete Suno style prompt",
+  "sunoPrompt": "complete Suno style prompt with genre tags, vocal direction, instruments, energy, BPM",
   "title": "song title",
   "previewLine": "the catchiest line from the chorus"
 }`;
 
-  const userMessage = `Create a ${genreConfig.vibe} song with these exact details:
+  const userPrompt = `Create a ${genreConfig.vibe} song with these exact details:
 
 OCCASION: ${occasion}
 WHO IT IS FOR: ${personName}
@@ -88,24 +90,25 @@ REQUIREMENTS:
 - For Yoruba: include oriki-style praise lines
 - For Pidgin: use real street expressions, not formal English translated to Pidgin
 - Chorus must be catchy and memorable — something people will sing along to
-- The song should make the person it's for feel special and celebrated
-- Suno prompt must include: genre tags, vocal style, Nigerian accent direction, instruments, energy level, BPM range`;
+- The song should make the person it is for feel special and celebrated`;
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+  const response = await client.chat.completions.create({
+    model: 'gpt-4o',
     max_tokens: 1500,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    response_format: { type: 'json_object' },
   });
 
-  const raw = response.content[0].text.trim();
-  const clean = raw.replace(/```json|```/g, '').trim();
+  const raw = response.choices[0].message.content;
 
   try {
-    return JSON.parse(clean);
+    return JSON.parse(raw);
   } catch (err) {
     console.error('promptBuilder JSON parse error. Raw output:', raw);
-    throw new Error('Failed to parse music prompt from Claude');
+    throw new Error('Failed to parse music prompt from GPT');
   }
 }
 

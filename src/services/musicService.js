@@ -3,61 +3,70 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-// Suno API via sunor.cc wrapper
-// Sign up at sunor.cc → get API key → add SUNOR_API_KEY to Railway env vars
-const SUNOR_BASE = 'https://api.sunor.cc/v1';
+const BASE_URL = 'https://sunor.cc/api/v1';
 
-function getSunorHeaders() {
+function getHeaders() {
   return {
-    Authorization: `Bearer ${process.env.SUNOR_API_KEY}`,
     'Content-Type': 'application/json',
+    'x-api-key': process.env.SUNOR_API_KEY,
   };
 }
 
-const MAX_POLL_ATTEMPTS = 40; // 40 × 6s = 4 minutes max
-const POLL_INTERVAL_MS = 6000;
+const MAX_POLL_ATTEMPTS = 60; // 60 × 5s = 5 minutes max
+const POLL_INTERVAL_MS = 5000;
 
 async function generateSong({ sunoPrompt, lyrics, title }) {
-  const payload = {
-    model: 'suno',
-    task_type: 'music',
-    input: {
-      prompt: sunoPrompt,
-      ...(lyrics && { lyrics }),
-      ...(title && { title }),
-    },
+  // Step 1: Submit task
+  const input = {
+    gpt_description_prompt: sunoPrompt,
+    make_instrumental: false,
   };
 
-  const { data: submitData } = await axios.post(
-    `${SUNOR_BASE}/tasks`,
-    payload,
-    { headers: getSunorHeaders() }
+  // Pass custom lyrics if provided
+  if (lyrics) {
+    input.prompt = lyrics;
+    input.mv = 'chirp-v5-5'; // Suno v5.5 model
+  }
+
+  const submitResponse = await axios.post(
+    `${BASE_URL}/task`,
+    {
+      model: 'suno',
+      task_type: 'music',
+      input,
+    },
+    { headers: getHeaders() }
   );
 
-  const taskId = submitData?.task_id || submitData?.id;
-  if (!taskId) throw new Error('Suno: no task_id returned from API');
+  const taskId = submitResponse.data?.task_id || submitResponse.data?.data?.task_id;
+  if (!taskId) throw new Error(`Sunor: no task_id in response: ${JSON.stringify(submitResponse.data)}`);
 
-  console.log(`Suno task submitted: ${taskId}`);
+  console.log(`Sunor task submitted: ${taskId}`);
 
+  // Step 2: Poll for result
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     await sleep(POLL_INTERVAL_MS);
 
-    const { data: pollData } = await axios.get(
-      `${SUNOR_BASE}/tasks/${taskId}`,
-      { headers: getSunorHeaders() }
+    const pollResponse = await axios.get(
+      `${BASE_URL}/task/${taskId}`,
+      { headers: getHeaders() }
     );
 
-    const status = pollData?.status;
-    console.log(`Suno poll attempt ${attempt + 1}: status=${status}`);
+    const data = pollResponse.data;
+    const status = data?.status;
+    console.log(`Sunor poll attempt ${attempt + 1}: status=${status}`);
 
-    if (status === 'completed' || status === 'success') {
-      const songs = pollData?.output?.songs || pollData?.songs || [];
-      if (!songs.length) throw new Error('Suno: completed but no songs in response');
+    if (status === 'success') {
+      const clips = data?.output?.result;
+      if (!clips || !clips.length) {
+        throw new Error('Sunor: success but no clips in output.result');
+      }
 
-      const song = songs[0];
-      const audioUrl = song.audio_url || song.url;
-      if (!audioUrl) throw new Error('Suno: no audio_url in song output');
+      const clip = clips[0];
+      const audioUrl = clip.audio_url;
+      if (!audioUrl) throw new Error('Sunor: no audio_url in clip');
 
+      // Download MP3 to local storage
       const localPath = await downloadAudio(audioUrl);
       const publicUrl = audioUrlToPublic(localPath);
 
@@ -65,17 +74,18 @@ async function generateSong({ sunoPrompt, lyrics, title }) {
         audioUrl,
         localPath,
         publicUrl,
-        title: song.title || title || 'Your Song',
-        duration: song.duration,
+        title: clip.title || title || 'Your Song',
+        imageUrl: clip.image_url || null,
       };
     }
 
-    if (status === 'failed' || status === 'error') {
-      throw new Error(`Suno generation failed: ${JSON.stringify(pollData)}`);
+    if (status === 'failure' || status === 'timeout') {
+      throw new Error(`Sunor generation ${status}: ${JSON.stringify(data)}`);
     }
+    // Still pending — keep polling
   }
 
-  throw new Error('Suno: generation timed out after 4 minutes');
+  throw new Error('Sunor: generation timed out after 5 minutes');
 }
 
 async function downloadAudio(url) {

@@ -7,17 +7,17 @@ const HEADERS = {
   'Content-Type': 'application/json',
 };
 
-// Tiered pricing: church/business/political flyers go through the
-// heaviest pipeline (live web-search design research, multi-photo
-// positioning logic, higher-fidelity edit calls), and serve users
-// with higher willingness-to-pay (churches/businesses spending money
-// to make money or serve their community). Personal/celebration
-// categories are priced lower to stay accessible for individuals.
 const PRICE_TIERS = {
+  // Flyer pricing
   church: 1000,
   business_advert: 1000,
   customer_appreciation: 1000,
   political: 1000,
+  // Music pricing
+  music_quick: 1000,        // English or Pidgin only
+  music_premium: 1500,      // Igbo, Yoruba, Mix, Voice clone
+  // Bundle
+  bundle: 2000,
 };
 const DEFAULT_PRICE_NGN = 700;
 
@@ -33,6 +33,10 @@ async function initializePayment({ phone, sessionId, category }) {
     tx_ref: reference,
     amount,
     currency: 'NGN',
+    // Force bank transfer as the first option shown to the user.
+    // Flutterwave respects the order: first item in the string
+    // is the default tab that opens on the payment page.
+    payment_options: 'banktransfer, card, ussd',
     redirect_url: `${process.env.APP_URL}/payment/callback`,
     customer: {
       email: `${phone.replace('+', '')}@naijameme.bot`,
@@ -42,7 +46,11 @@ async function initializePayment({ phone, sessionId, category }) {
     meta: { phone, session_id: sessionId },
     customizations: {
       title: 'NaijaMeme Bot',
-      description: 'Generate your custom Naija meme',
+      description: category.startsWith('music')
+        ? 'Generate your personalised Nigerian song'
+        : category === 'bundle'
+        ? 'Flyer + Song bundle'
+        : 'Generate your custom Naija flyer',
     },
   }, { headers: HEADERS });
 
@@ -63,11 +71,6 @@ async function verifyPayment(reference) {
 
   const tx = data.data;
 
-  // Look up the amount we actually expected for THIS reference (set at
-  // initialization, tied to the category's price tier at that time),
-  // rather than checking against a single global constant. This is the
-  // correct way to verify tiered pricing -- a ₦700 payment should not
-  // accidentally satisfy a session that was supposed to cost ₦1,000.
   const expectedResult = await pool.query(
     `SELECT amount FROM payments WHERE reference = $1`,
     [reference]

@@ -153,7 +153,12 @@ async function runMigration() {
       ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_person_name TEXT;
       ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_language TEXT;
       ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_story TEXT;
-    `);
+   ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_custom_lyrics TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_using_custom BOOLEAN DEFAULT FALSE;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_generated_lyrics TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_suno_prompt TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_title TEXT;
+ `);
 
     console.log('✅ Migration complete');
   } catch (err) {

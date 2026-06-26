@@ -71,51 +71,51 @@ const STRUCTURED_QUESTIONS = {
     { field: 'event_subtype', prompt: 'What *kind of business promotion* is this?\n\n_(e.g. new product launch, discount/sale, restaurant, fashion, beauty, healthcare, school -- or describe it in your own words)_' },
     { field: 'business_name', prompt: 'What is the *name of your business*?' },
     { field: 'offer_product', prompt: 'What *product, service, or offer* are you advertising?' },
-    { field: 'positioning', prompt: 'How would you describe your business?\n\n_(e.g. "luxury/premium", "affordable/budget", "mid-range" -- this helps us match the right look and feel)_' },
-    { field: 'contact_info', prompt: 'What *contact info* should we show?\n\n_(you can list all of them -- phone, WhatsApp, TikTok, Instagram, address, etc.)_' },
-    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(e.g. "navy and gold, minimal", "bright and bold", or type "skip" and we\'ll pick something premium for you)_' },
+    { field: 'positioning', prompt: 'How would you describe your business?\n\n_(e.g. "luxury/premium", "affordable/budget", "mid-range")_' },
+    { field: 'contact_info', prompt: 'What *contact info* should we show?\n\n_(phone, WhatsApp, TikTok, Instagram, address, etc.)_' },
+    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(or type "skip" and we\'ll pick something premium for you)_' },
   ],
   customer_appreciation: [
     { field: 'business_name', prompt: 'What is the *name of your business*?' },
-    { field: 'offer_product', prompt: 'What is this customer being appreciated for?\n\n_(e.g. 1 year loyalty, referring new customers, 5-star review)_' },
-    { field: 'positioning', prompt: 'How would you describe your business?\n\n_(e.g. "luxury/premium", "affordable/budget", "mid-range" -- this helps us match the right look and feel)_' },
-    { field: 'contact_info', prompt: 'What *contact info* should we show?\n\n_(you can list all of them -- phone, WhatsApp, TikTok, Instagram, address, etc. -- or type "none" to skip)_' },
-    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(or type "skip" and we\'ll pick something premium for you)_' },
+    { field: 'offer_product', prompt: 'What is this customer being appreciated for?' },
+    { field: 'positioning', prompt: 'How would you describe your business?\n\n_(e.g. "luxury/premium", "affordable/budget", "mid-range")_' },
+    { field: 'contact_info', prompt: 'What *contact info* should we show?\n\n_(or type "none" to skip)_' },
+    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(or type "skip")_' },
   ],
   political: [
-    { field: 'event_subtype', prompt: 'What *kind of political design* is this?\n\n_(e.g. campaign poster, rally flyer, election promotion, community outreach -- or describe it in your own words)_' },
+    { field: 'event_subtype', prompt: 'What *kind of political design* is this?\n\n_(e.g. campaign poster, rally flyer, election promotion, community outreach)_' },
     { field: 'candidate_name', prompt: 'What is the *candidate\'s name*?' },
-    { field: 'position_title', prompt: 'What *position* are they contesting for?\n\n_(e.g. Local Government Chairman)_' },
+    { field: 'position_title', prompt: 'What *position* are they contesting for?' },
     { field: 'party_slogan', prompt: 'What is the *party name and/or campaign slogan*?' },
     { field: 'election_date', prompt: 'What is the *election date* or event date?' },
-    { field: 'style_preference', prompt: 'Any *party colours or style preference*?\n\n_(or type "skip" and we\'ll pick something premium for you)_' },
+    { field: 'style_preference', prompt: 'Any *party colours or style preference*?\n\n_(or type "skip")_' },
   ],
   academic: [
     { field: 'school_name', prompt: 'What is the *name of the school/institution*?' },
     { field: 'achievement_name', prompt: 'What is the *achievement or event*?\n\n_(e.g. First Class Graduation, NYSC Call-Up, WAEC Result)_' },
     { field: 'achievement_date', prompt: 'What *date* should we show?' },
-    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(or type "skip" and we\'ll pick something premium for you)_' },
+    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(or type "skip")_' },
   ],
   birthday: [
     { field: 'celebrant_name', prompt: 'What is the *celebrant\'s name*?' },
     { field: 'celebration_date', prompt: 'What is the *birthday date*?' },
-    { field: 'celebrant_relationship', prompt: 'What is your *relationship* to them?\n\n_(e.g. "my sister", "my boss", "my best friend")_' },
+    { field: 'celebrant_relationship', prompt: 'What is your *relationship* to them?' },
     { field: 'celebration_wish', prompt: 'Write a short *birthday wish or message* for them.' },
-    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(e.g. "pink and gold", "elegant and simple", or type "skip" and we\'ll pick something premium for you)_' },
+    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(or type "skip")_' },
   ],
   naming_ceremony: [
     { field: 'baby_name', prompt: 'What is the *baby\'s name*?' },
     { field: 'parents_names', prompt: 'What are the *parents\' names*?' },
     { field: 'naming_date', prompt: 'What is the *date* of the ceremony?' },
     { field: 'naming_venue', prompt: 'What is the *venue*?\n\n_(Type "none" if not yet decided)_' },
-    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(or type "skip" and we\'ll pick something premium for you)_' },
+    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(or type "skip")_' },
   ],
   wedding: [
     { field: 'bride_name', prompt: 'What is the *bride\'s name*?' },
     { field: 'groom_name', prompt: 'What is the *groom\'s name*?' },
     { field: 'wedding_date', prompt: 'What is the *wedding date*?' },
     { field: 'wedding_venue', prompt: 'What is the *venue*?\n\n_(Type "none" if not yet decided)_' },
-    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(e.g. "burgundy and gold", "soft pastels", or type "skip" and we\'ll pick something premium for you)_' },
+    { field: 'style_preference', prompt: 'Any *colour or style preference*?\n\n_(or type "skip")_' },
   ],
 };
 
@@ -191,6 +191,8 @@ async function handleIncomingMessage(phone, message, messageId) {
     case 'MUSIC_PERSON_NAME': return handleMusicPersonName(phone, session, message);
     case 'MUSIC_LANGUAGE': return handleMusicLanguage(phone, session, message);
     case 'MUSIC_STORY': return handleMusicStory(phone, session, message);
+    case 'MUSIC_LYRICS_CONFIRM': return handleLyricsConfirm(phone, session, message);
+    case 'MUSIC_LYRICS_EDIT': return handleLyricsEdit(phone, session, message);
     case 'MUSIC_AWAITING_PAYMENT': return handleMusicPaymentCheck(phone, session, message);
     case 'AWAITING_FEEDBACK_RATING': return handleFeedbackRating(phone, session, message);
     case 'AWAITING_FEEDBACK_COMMENT': return handleFeedbackComment(phone, session, message);
@@ -210,7 +212,7 @@ async function sendMainMenu(phone) {
     'Choose',
     [
       {
-        title: 'Create something',
+        title: 'What do you want to create?',
         rows: [
           { id: 'MAIN_FLYER', title: '🖼️ Create a Flyer' },
           { id: 'MAIN_SONG', title: '🎵 Create a Song' },
@@ -284,11 +286,11 @@ async function sendMenu(phone) {
       {
         title: 'Business & Special',
         rows: [
-          { id: 'CAT_customer_appreciation', title: '⭐ Customer Appreciation' },
+          { id: 'CAT_customer_appreciation', title: '⭐ Customer Apprec.' },
           { id: 'CAT_business_advert', title: '📢 Business Advert' },
           { id: 'CAT_church', title: '⛪ Church/Ministry' },
           { id: 'CAT_political', title: '🗳️ Political Campaign' },
-          { id: 'CAT_academic', title: '🎓 Academic Achievement' },
+          { id: 'CAT_academic', title: '🎓 Academic' },
         ],
       },
     ]
@@ -315,7 +317,7 @@ async function handleMenuSelection(phone, session, message) {
   }
 
   await sessionSvc.updateSession(session.id, { state: 'CATEGORY_SELECTED', category });
-  await wa.sendText(phone, `${CATEGORY_LABELS[category]} selected! ✅\n\nWhat is the *name* of the person you are sending this to?\n\n_(e.g. Mama, Oga Tony, Chioma, Pastor Mike)_`);
+  await wa.sendText(phone, `${CATEGORY_LABELS[category]} selected! ✅\n\nWhat is the *name* of the person you are sending this to?`);
 }
 
 async function handleStructuredAnswer(phone, session, message) {
@@ -389,7 +391,7 @@ async function handleLogoDecision(phone, session, message) {
 
 async function handleLogoUpload(phone, session, message) {
   if (message.type !== 'image') {
-    return wa.sendText(phone, '⚠️ Please send your logo as an image, or type *skip* to let us create one.');
+    return wa.sendText(phone, '⚠️ Please send your logo as an image.');
   }
   await wa.sendText(phone, '⏳ Got your logo! Saving it...');
   try {
@@ -437,7 +439,7 @@ async function handleProductPhotoDecision(phone, session, message) {
 
 async function handleProductPhotoUpload(phone, session, message) {
   if (message.type !== 'image') {
-    return wa.sendText(phone, '⚠️ Please send a photo as an image, or type *skip* to move on.');
+    return wa.sendText(phone, '⚠️ Please send a photo as an image.');
   }
   await wa.sendText(phone, '⏳ Got it! Saving...');
   try {
@@ -567,7 +569,7 @@ async function proceedPastPhotos(phone, sessionId) {
     await sessionSvc.updateSession(sessionId, { state: 'AWAITING_OUTFIT_PREFERENCE' });
     return wa.sendButtons(
       phone,
-      `📸 Got the photo(s)! Should we *keep the exact outfit* or *upgrade it* to suit the flyer style?`,
+      `📸 Got the photo(s)! Should we *keep the exact outfit* or *upgrade it* for the flyer?`,
       [
         { id: 'OUTFIT_KEEP', title: '👕 Keep Outfit' },
         { id: 'OUTFIT_UPGRADE', title: '✨ Upgrade Outfit' },
@@ -782,21 +784,21 @@ async function generateAndSend(phone, session, triggeringMessageId) {
     await wa.sendImage(phone, publicUrl, caption);
 
     const thankYouMessages = {
-      birthday: `🎂 *${freshSession.celebrant_name || freshSession.recipient_name}* go smile well well when dem see this -- you don show say you care. Enjoy the celebration! 🙏✨`,
-      wedding: `💍 Una don create something beautiful to mark this love story. We honoured say you choose us 🙏✨`,
-      naming_ceremony: `👶 A new name, a new life -- God bless this child and everyone wey go gather to celebrate am 🙏`,
-      church: `⛪ This na more than a flyer -- na an invitation to encounter God. We pray many souls go answer this call 🙏🔥`,
-      business_advert: `📢 Your business just got a piece wey go make people stop and look. We dey root for you 💪🙏`,
+      birthday: `🎂 *${freshSession.celebrant_name || freshSession.recipient_name}* go smile well well when dem see this 🙏✨`,
+      wedding: `💍 Una don create something beautiful to mark this love story 🙏✨`,
+      naming_ceremony: `👶 God bless this child and everyone wey go gather to celebrate am 🙏`,
+      church: `⛪ This na more than a flyer -- na an invitation to encounter God 🙏🔥`,
+      business_advert: `📢 Your business just got something wey go make people stop and look 💪🙏`,
       customer_appreciation: `⭐ That customer go feel am for their heart. Na people like you dey build real businesses 🙏`,
       political: `🗳️ Leadership start with people seeing your vision -- now they fit see am 🙏`,
-      academic: `🎓 All the late nights, the sacrifice -- e don pay off. This moment na yours 🙏✨`,
-      thank_you: `🙏 Sometimes people wey deserve appreciation no dey hear am enough. You just fixed that 💚`,
-      congratulations: `🎉 Every win deserve to be celebrated loud -- and now it is 💚`,
+      academic: `🎓 All the late nights, the sacrifice -- e don pay off 🙏✨`,
+      thank_you: `🙏 You just made sure someone feels valued today 💚`,
+      congratulations: `🎉 Every win deserve to be celebrated loud 💚`,
       apology: `😔 It take courage to say sorry well. We hope this opens the door for healing 🙏`,
-      ask_money: `💸 You don put am out there in a way wey go land soft. We hope everything works out 😄🙏`,
-      relationship: `💔 You don shoot your shot -- that already take guts. We dey root for you 🎯😄`,
+      ask_money: `💸 We hope everything works out for you 😄🙏`,
+      relationship: `💔 You don shoot your shot -- we dey root for you 🎯😄`,
     };
-    const thankYou = thankYouMessages[freshSession.category] || `🙏 We're genuinely glad we could help bring this to life for you.`;
+    const thankYou = thankYouMessages[freshSession.category] || `🙏 We're genuinely glad we could help bring this to life.`;
     await wa.sendText(phone, thankYou);
 
     await sessionSvc.updateSession(session.id, {
@@ -841,22 +843,46 @@ async function handleShoutoutDecision(phone, session, message) {
 // ══════════════════════════════════════════════════════
 
 async function sendMusicGenreMenu(phone) {
-  return wa.sendList(
+  await wa.sendList(
     phone,
     '🎵 Choose Your Sound',
-    'Which style of music do you want?',
+    'Which style of music? (Part 1)',
     'Pick Genre',
     [
       {
-        title: 'Nigerian Genres',
+        title: 'Afrobeats & Pop',
         rows: [
           { id: 'GENRE_afrobeats', title: '🔥 Afrobeats' },
           { id: 'GENRE_amapiano', title: '🎹 Amapiano' },
-          { id: 'GENRE_igbo_highlife', title: '🥁 Igbo Highlife+Ogene' },
-          { id: 'GENRE_yoruba_juju', title: '🎸 Yoruba Juju/Praise' },
-          { id: 'GENRE_gospel', title: '🙏 Nigerian Gospel' },
           { id: 'GENRE_street_pop', title: '🎤 Street Pop/Asake' },
           { id: 'GENRE_pidgin_mix', title: '🌍 Pidgin+Yoruba Mix' },
+        ],
+      },
+      {
+        title: 'Traditional & Gospel',
+        rows: [
+          { id: 'GENRE_igbo_highlife', title: '🥁 Igbo Highlife+Ogene' },
+          { id: 'GENRE_pidgin_igbo', title: '🔀 Pidgin+Igbo Fusion' },
+          { id: 'GENRE_yoruba_juju', title: '🎸 Yoruba Juju/Praise' },
+          { id: 'GENRE_gospel', title: '🙏 Nigerian Gospel' },
+          { id: 'GENRE_gospel_rap', title: '✝️ Gospel Rap' },
+          { id: 'GENRE_ogene_pidgin', title: '🥁 Ogene+Pidgin Vibe' },
+        ],
+      },
+    ]
+  );
+
+  await wa.sendList(
+    phone,
+    '🎵 More Genres',
+    'Rap styles 👇',
+    'Pick Genre',
+    [
+      {
+        title: 'Rap',
+        rows: [
+          { id: 'GENRE_naija_rap', title: '🎙️ Naija Street Rap' },
+          { id: 'GENRE_eminem_rap', title: '⚡ Fast English Rap' },
         ],
       },
     ]
@@ -869,9 +895,14 @@ async function handleMusicGenre(phone, session, message) {
     GENRE_afrobeats: 'afrobeats',
     GENRE_amapiano: 'amapiano',
     GENRE_igbo_highlife: 'igbo_highlife',
+    GENRE_pidgin_igbo: 'pidgin_igbo',
     GENRE_yoruba_juju: 'yoruba_juju',
     GENRE_gospel: 'gospel',
+    GENRE_gospel_rap: 'gospel_rap',
     GENRE_street_pop: 'street_pop',
+    GENRE_naija_rap: 'naija_rap',
+    GENRE_eminem_rap: 'eminem_rap',
+    GENRE_ogene_pidgin: 'ogene_pidgin',
     GENRE_pidgin_mix: 'pidgin_mix',
   };
 
@@ -978,15 +1009,33 @@ async function handleMusicLanguage(phone, session, message) {
 
   await wa.sendButtons(
     phone,
-    `🎤 Last step! Tell me the *story or message* for this song.\n\nThe more details, the more personal and powerful your song will be 🔥\n\n_e.g. "My friend Tunde just got his first job at GTBank after 2 years of hustling. He's from Ibadan. Hype him up!"_\n\nOr send a voice note 🎙️`,
-    [{ id: 'MUSIC_TYPE_INSTEAD', title: '⌨️ Type Message' }]
+    `🎤 Almost there!\n\nDo you have *your own lyrics* already written, or should we write them for you?\n\n_If you have lyrics, tap "My Own Lyrics" and paste them in. Otherwise tap "Write For Me" and just tell us the story._`,
+    [
+      { id: 'LYRICS_CUSTOM', title: '✏️ My Own Lyrics' },
+      { id: 'LYRICS_AI', title: '🤖 Write For Me' },
+    ]
   );
 }
 
 async function handleMusicStory(phone, session, message) {
   const btnId = message.interactive?.button_reply?.id;
-  if (btnId === 'MUSIC_TYPE_INSTEAD') {
-    return wa.sendText(phone, '⌨️ Type your story or message now:');
+
+  // User wants to write own lyrics
+  if (btnId === 'LYRICS_CUSTOM') {
+    await sessionSvc.updateSession(session.id, { state: 'MUSIC_LYRICS_EDIT', music_using_custom: true });
+    return wa.sendText(
+      phone,
+      `✏️ Paste your lyrics now.\n\nUse these tags to structure them:\n\n[Verse]\nyour verse here\n\n[Chorus]\nyour chorus here\n\n_Send when ready 👇_`
+    );
+  }
+
+  // User wants AI to write lyrics — ask for story
+  if (btnId === 'LYRICS_AI' || btnId === 'MUSIC_TYPE_INSTEAD') {
+    await sessionSvc.updateSession(session.id, { state: 'MUSIC_STORY' });
+    return wa.sendText(
+      phone,
+      `🎤 Tell me the *story or message* for this song.\n\nThe more details, the more personal and powerful your song will be 🔥\n\n_e.g. "My friend Tunde just got his first job at GTBank after 2 years of hustling. He's from Ibadan. Hype him up!"_\n\nOr send a voice note 🎙️`
+    );
   }
 
   let story = '';
@@ -1007,8 +1056,116 @@ async function handleMusicStory(phone, session, message) {
     return wa.sendText(phone, '⚠️ Please type your story or send a voice note.');
   }
 
-  await sessionSvc.updateSession(session.id, { music_story: story, state: 'MUSIC_AWAITING_PAYMENT' });
-  return triggerMusicPayment(phone, session);
+  await sessionSvc.updateSession(session.id, { music_story: story });
+
+  // Generate lyrics preview before payment
+  await wa.sendText(phone, '✍️ Writing your lyrics... give me a moment 🎵');
+  try {
+    const freshSession = await sessionSvc.getSessionById(session.id);
+    const { lyrics, sunoPrompt, title, previewLine } = await buildMusicPrompt(freshSession);
+
+    // Save generated lyrics and prompt to session
+    await sessionSvc.updateSession(session.id, {
+      state: 'MUSIC_LYRICS_CONFIRM',
+      music_generated_lyrics: lyrics,
+      music_suno_prompt: sunoPrompt,
+      music_title: title,
+    });
+
+    await wa.sendText(
+      phone,
+      `📝 *Here are your lyrics:*\n\n${lyrics}\n\n---\n_Catchy line: "${previewLine}"_`
+    );
+
+    return wa.sendButtons(
+      phone,
+      `How do these lyrics look? 👆`,
+      [
+        { id: 'LYRICS_APPROVE', title: '✅ Use These' },
+        { id: 'LYRICS_REWRITE', title: '🔄 Rewrite' },
+        { id: 'LYRICS_EDIT', title: '✏️ Edit Myself' },
+      ]
+    );
+  } catch (err) {
+    console.error('Lyrics generation error:', err.message);
+    await wa.sendText(phone, '⚠️ Could not generate lyrics right now. Type *menu* to try again.');
+  }
+}
+
+async function handleLyricsConfirm(phone, session, message) {
+  const btnId = message.interactive?.button_reply?.id;
+
+  if (btnId === 'LYRICS_APPROVE') {
+    // User approved — proceed to payment
+    return triggerMusicPayment(phone, session);
+  }
+
+  if (btnId === 'LYRICS_REWRITE') {
+    // Clear generated lyrics, regenerate
+    await sessionSvc.updateSession(session.id, {
+      music_generated_lyrics: null,
+      music_suno_prompt: null,
+      music_title: null,
+    });
+    await wa.sendText(phone, '🔄 Rewriting your lyrics...');
+    try {
+      const freshSession = await sessionSvc.getSessionById(session.id);
+      const { lyrics, sunoPrompt, title, previewLine } = await buildMusicPrompt(freshSession);
+
+      await sessionSvc.updateSession(session.id, {
+        music_generated_lyrics: lyrics,
+        music_suno_prompt: sunoPrompt,
+        music_title: title,
+      });
+
+      await wa.sendText(phone, `📝 *New lyrics:*\n\n${lyrics}\n\n---\n_Catchy line: "${previewLine}"_`);
+
+      return wa.sendButtons(
+        phone,
+        `How do these look? 👆`,
+        [
+          { id: 'LYRICS_APPROVE', title: '✅ Use These' },
+          { id: 'LYRICS_REWRITE', title: '🔄 Rewrite Again' },
+          { id: 'LYRICS_EDIT', title: '✏️ Edit Myself' },
+        ]
+      );
+    } catch (err) {
+      console.error('Lyrics rewrite error:', err.message);
+      await wa.sendText(phone, '⚠️ Could not rewrite lyrics. Type *menu* to try again.');
+    }
+  }
+
+  if (btnId === 'LYRICS_EDIT') {
+    await sessionSvc.updateSession(session.id, { state: 'MUSIC_LYRICS_EDIT' });
+    return wa.sendText(
+      phone,
+      `✏️ Send your edited lyrics now.\n\nYou can paste the lyrics above and change whatever you want.\n\nUse [Verse], [Chorus], [Bridge] tags to structure them.`
+    );
+  }
+}
+
+async function handleLyricsEdit(phone, session, message) {
+  const text = message.text?.body?.trim();
+  if (!text || text.length < 10) {
+    return wa.sendText(phone, '⚠️ Please paste your lyrics. They seem too short.');
+  }
+
+  await sessionSvc.updateSession(session.id, {
+    music_generated_lyrics: text,
+    music_custom_lyrics: text,
+    state: 'MUSIC_LYRICS_CONFIRM',
+  });
+
+  await wa.sendText(phone, `📝 *Your lyrics:*\n\n${text}`);
+
+  return wa.sendButtons(
+    phone,
+    `Ready to generate your song with these lyrics? 🎵`,
+    [
+      { id: 'LYRICS_APPROVE', title: '✅ Generate Song' },
+      { id: 'LYRICS_EDIT', title: '✏️ Edit Again' },
+    ]
+  );
 }
 
 async function triggerMusicPayment(phone, session) {
@@ -1075,10 +1232,22 @@ async function generateAndSendSong(phone, session) {
   try {
     const freshSession = await sessionSvc.getSessionById(session.id);
 
-    await wa.sendText(phone, '✍️ Writing your lyrics...');
-    const { lyrics, sunoPrompt, title, previewLine } = await buildMusicPrompt(freshSession);
+    // Use saved lyrics and prompt if already generated, otherwise build fresh
+    let lyrics = freshSession.music_generated_lyrics || freshSession.music_custom_lyrics;
+    let sunoPrompt = freshSession.music_suno_prompt;
+    let title = freshSession.music_title;
+    let previewLine = '';
 
-    await wa.sendText(phone, `📝 Lyrics don ready!\n\n_"${previewLine}"_\n\n🎼 Now recording your song... 2-3 minutes ⏳`);
+    if (!lyrics || !sunoPrompt) {
+      await wa.sendText(phone, '✍️ Writing your lyrics...');
+      const built = await buildMusicPrompt(freshSession);
+      lyrics = built.lyrics;
+      sunoPrompt = built.sunoPrompt;
+      title = built.title;
+      previewLine = built.previewLine;
+    }
+
+    await wa.sendText(phone, `🎼 Recording your song... 2-3 minutes ⏳`);
 
     const { publicUrl, title: songTitle } = await musicSvc.generateSong({
       sunoPrompt,

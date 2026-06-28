@@ -843,10 +843,10 @@ async function handleShoutoutDecision(phone, session, message) {
 // ══════════════════════════════════════════════════════
 
 async function sendMusicGenreMenu(phone) {
-  await wa.sendList(
+  return wa.sendList(
     phone,
     '🎵 Choose Your Sound',
-    'Which style of music? (Part 1)',
+    'Which style of music do you want?',
     'Pick Genre',
     [
       {
@@ -859,28 +859,12 @@ async function sendMusicGenreMenu(phone) {
         ],
       },
       {
-        title: 'Traditional & Gospel',
+        title: 'Traditional, Gospel & Rap',
         rows: [
           { id: 'GENRE_igbo_highlife', title: '🥁 Igbo Highlife+Ogene' },
           { id: 'GENRE_pidgin_igbo', title: '🔀 Pidgin+Igbo Fusion' },
-          { id: 'GENRE_yoruba_juju', title: '🎸 Yoruba Juju/Praise' },
-          { id: 'GENRE_gospel', title: '🙏 Nigerian Gospel' },
-          { id: 'GENRE_gospel_rap', title: '✝️ Gospel Rap' },
-          { id: 'GENRE_ogene_pidgin', title: '🥁 Ogene+Pidgin Vibe' },
-        ],
-      },
-    ]
-  );
-
-  await wa.sendList(
-    phone,
-    '🎵 More Genres',
-    'Rap styles 👇',
-    'Pick Genre',
-    [
-      {
-        title: 'Rap',
-        rows: [
+          { id: 'GENRE_yoruba_juju', title: '🎸 Yoruba Juju' },
+          { id: 'GENRE_gospel', title: '🙏 Gospel/Gospel Rap' },
           { id: 'GENRE_naija_rap', title: '🎙️ Naija Street Rap' },
           { id: 'GENRE_eminem_rap', title: '⚡ Fast English Rap' },
         ],
@@ -898,11 +882,9 @@ async function handleMusicGenre(phone, session, message) {
     GENRE_pidgin_igbo: 'pidgin_igbo',
     GENRE_yoruba_juju: 'yoruba_juju',
     GENRE_gospel: 'gospel',
-    GENRE_gospel_rap: 'gospel_rap',
     GENRE_street_pop: 'street_pop',
     GENRE_naija_rap: 'naija_rap',
     GENRE_eminem_rap: 'eminem_rap',
-    GENRE_ogene_pidgin: 'ogene_pidgin',
     GENRE_pidgin_mix: 'pidgin_mix',
   };
 

@@ -65,8 +65,6 @@ async function buildMusicPrompt(session) {
   const customLyrics = session.music_custom_lyrics || null;
   const genreConfig = GENRE_CONFIGS[genre] || GENRE_CONFIGS.afrobeats;
 
-  // If user provided their own lyrics, skip writing new ones
-  // Just build the Suno prompt around their lyrics
   if (customLyrics) {
     const sunoPrompt = `${genreConfig.sunoTags}. Song about ${occasion} for ${personName}.`;
     return {
@@ -81,20 +79,18 @@ async function buildMusicPrompt(session) {
 
 Your expertise:
 - Pidgin English: natural flow, street expressions, correct Nigerian cadence
-- Igbo: correct grammar, praise names (Nna m, Nne m, Ọ dị mma, Chineke), proverbs, Anambra/Enugu/Imo dialects, ogene call-and-response patterns
+- Igbo: correct grammar, praise names (Nna m, Nne m, O di mma, Chineke), proverbs, Anambra/Enugu/Imo dialects, ogene call-and-response patterns
 - Yoruba: correct tones, oriki praise poetry, cultural expressions, juju music phrasing
 - Hausa: natural warm phrasing and cultural expressions
 - Nigerian Rap: Olamide-style Pidgin bars, fast flow, street energy, Lagos slang
 - Gospel Rap: SOG/Limoblaze style, testimony-driven, Pidgin bars over gospel beats
 - Eminem-style: fast technical English, complex multisyllabic rhymes, emotional storytelling
-- Ogene/Pidgin fusion: ogene call-and-response patterns adapted for Pidgin street vocals
 - How real Nigerian artists mix languages naturally
 
 Suno AI technical knowledge:
 - Use [Verse], [Chorus], [Bridge], [Outro] structure tags
 - For rap: use [Verse - Rap] and [Hook] tags
 - Keep total lyrics to 60-90 seconds when sung (roughly 150-200 words)
-- For ogene: write short punchy call-and-response lines
 - For rap: write bars with clear rhythm and rhyme scheme
 - For gospel rap: alternate between rap bars and melodic chorus
 
@@ -116,16 +112,15 @@ GENRE STYLE TAGS FOR SUNO: ${genreConfig.sunoTags}
 
 REQUIREMENTS:
 - Make it deeply personal using the specific details above
-- Language must be authentic ${language} — not a translation, it should feel like a real Nigerian artist wrote it
+- Language must be authentic ${language}
 - For Igbo/Pidgin-Igbo: include at least one Igbo proverb or praise name
-- For Yoruba: include oriki-style praise lines  
-- For Pidgin: use real street expressions, not formal English translated to Pidgin
+- For Yoruba: include oriki-style praise lines
+- For Pidgin: use real street expressions
 - For Naija Rap: fast Pidgin flow, heavy bars, street energy, Lagos slang
-- For Gospel Rap: testimony-driven bars, hope and faith theme, Pidgin + English mix
+- For Gospel Rap: testimony-driven bars, hope and faith theme
 - For Eminem style: complex rhyme schemes, fast delivery, emotional storytelling in English
-- For Ogene/Pidgin: short punchy call-and-response lines, ogene rhythm structure
 - Chorus/Hook must be catchy and memorable
-- The song should make the person it is for feel special and celebrated`;
+- The song should make the person it is for feel special`;
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o',

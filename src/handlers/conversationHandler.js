@@ -212,7 +212,7 @@ async function sendMainMenu(phone) {
     'Choose',
     [
       {
-        title: 'What do you want to create?',
+        title: 'Choose Your Creation',
         rows: [
           { id: 'MAIN_FLYER', title: 'Create a Flyer' },
           { id: 'MAIN_SONG', title: 'Create a Song' },
@@ -859,7 +859,7 @@ async function sendMusicGenreMenu(phone) {
         ],
       },
       {
-        title: 'Traditional Gospel and Rap',
+        title: 'Gospel highlife and Rap',
         rows: [
           { id: 'GENRE_igbo_highlife', title: 'Igbo Highlife Ogene' },
           { id: 'GENRE_pidgin_igbo', title: 'Pidgin and Igbo Fusion' },

@@ -23,12 +23,8 @@ const GENRE_CONFIGS = {
     vibe: 'traditional Yoruba juju praise singing',
   },
   gospel: {
-    sunoTags: 'Nigerian gospel, choir backing vocals, uplifting piano, powerful drums, thanksgiving, Afro-gospel, passionate Nigerian vocalist, worship',
-    vibe: 'powerful Nigerian gospel thanksgiving',
-  },
-  gospel_rap: {
-    sunoTags: 'Nigerian gospel rap, spoken word testimony, hip hop beat with church choir, Pidgin English bars, inspirational, SOG style, Limoblaze style, uplifting percussion',
-    vibe: 'Nigerian gospel rap testimony',
+    sunoTags: 'Nigerian gospel and gospel rap, choir backing vocals, uplifting piano, powerful drums, thanksgiving, Afro-gospel, passionate Nigerian vocalist, worship, spoken word testimony bars, SOG style, Limoblaze influence',
+    vibe: 'powerful Nigerian gospel and gospel rap',
   },
   street_pop: {
     sunoTags: 'Nigerian street pop, Asake style, street energy, talking drum samples, trap hi-hats, melodic vocals, Pidgin English',
@@ -41,10 +37,6 @@ const GENRE_CONFIGS = {
   eminem_rap: {
     sunoTags: 'fast technical rap, complex rhyme schemes, storytelling, Eminem style, rapid fire delivery, English lyrics, dramatic beat, emotional narrative, cinematic production',
     vibe: 'fast technical English rap storytelling',
-  },
-  ogene_pidgin: {
-    sunoTags: 'ogene metallic percussion, Igbo traditional drums, Pidgin English vocals over ogene beat, fusion of street and traditional, southeastern Nigeria sound, energetic, unique cultural blend',
-    vibe: 'ogene beats with Pidgin street vocals',
   },
   pidgin_mix: {
     sunoTags: 'Afrobeats, Pidgin English lyrics, Yoruba ad-libs scattered, modern Nigerian sound, catchy hook, radio-ready, Burna Boy energy, emotional',

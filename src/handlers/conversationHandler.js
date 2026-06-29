@@ -218,7 +218,7 @@ async function sendMainMenu(phone) {
     'Choose',
     [
       {
-        title: 'What do you want to create?',
+        title: 'Choose Your Creation',
         rows: [
           { id: 'MAIN_FLYER', title: '🖼️ Create a Flyer' },
           { id: 'MAIN_SONG', title: '🎵 Create a Song' },

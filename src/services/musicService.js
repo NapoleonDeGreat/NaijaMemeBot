@@ -15,16 +15,15 @@ function getHeaders() {
 const MAX_POLL_ATTEMPTS = 60;
 const POLL_INTERVAL_MS = 5000;
 
-async function generateSong({ sunoPrompt, lyrics, title }) {
+async function generateSong({ lyrics, tags, negativeTags, title }) {
+  // Always use Custom Mode — we provide lyrics and style tags separately
+  // This gives far better results than gpt_description_prompt alone
   const input = {
-    gpt_description_prompt: sunoPrompt,
-    make_instrumental: false,
+    prompt: lyrics,          // Our Claude-written lyrics
+    tags: tags,              // Genre/style descriptors from Music DNA
+    negative_tags: negativeTags || '',  // Styles to avoid
+    title: title || 'Untitled',
   };
-
-  if (lyrics) {
-    input.prompt = lyrics;
-    input.mv = 'chirp-v5-5';
-  }
 
   const submitResponse = await axios.post(
     `${BASE_URL}/task`,
@@ -58,8 +57,7 @@ async function generateSong({ sunoPrompt, lyrics, title }) {
 
     const data = pollResponse.data;
 
-    // Log full response on first 3 attempts to see structure
-    if (attempt < 3) {
+    if (attempt < 2) {
       console.log(`Sunor full response attempt ${attempt + 1}: ${JSON.stringify(data)}`);
     }
 
@@ -75,12 +73,10 @@ async function generateSong({ sunoPrompt, lyrics, title }) {
         data?.output?.result ||
         data?.data?.output?.result ||
         data?.result ||
-        data?.data?.result ||
-        data?.clips ||
-        data?.data?.clips;
+        data?.data?.result;
 
       if (!clips || !clips.length) {
-        throw new Error(`Sunor: success but no clips found. Full response: ${JSON.stringify(data)}`);
+        throw new Error(`Sunor: success but no clips. Response: ${JSON.stringify(data)}`);
       }
 
       const clip = clips[0];
@@ -95,7 +91,8 @@ async function generateSong({ sunoPrompt, lyrics, title }) {
         localPath,
         publicUrl,
         title: clip.title || title || 'Your Song',
-        imageUrl: clip.image_url || null,
+        imageUrl: clip.image_url || null,  // Cover art — now returned to caller
+        duration: clip.duration || null,
       };
     }
 

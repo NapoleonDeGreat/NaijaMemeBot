@@ -1,150 +1,334 @@
 const OpenAI = require('openai');
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// NOTE: Suno blocks all specific artist name references in style prompts.
-// Every sunoTags string describes the SOUND only -- no artist names anywhere.
+// ══════════════════════════════════════════════════════════════════
+// MUSIC DNA SYSTEM
+// Every genre has: sunoTags, negativeTags, lyricStyle, vibe
+// sunoTags  → passed directly as Suno "tags" field
+// negativeTags → passed as Suno "negative_tags" to avoid generic AI sound
+// lyricStyle → tells GPT exactly how to write for this genre
+// vibe → human description used in GPT prompt
+// ══════════════════════════════════════════════════════════════════
 
-const GENRE_CONFIGS = {
+const MUSIC_DNA = {
+
+  // ── AFROBEATS ─────────────────────────────────────────────────
   afrobeats: {
-    sunoTags: 'Afrobeats, modern Nigerian pop, catchy hook, danceable, log drum, shekere, male Nigerian accent, Lagos energy, radio-ready, upbeat 95 BPM',
-    vibe: 'hype and celebratory Afrobeats',
+    sunoTags: 'Afrobeats, Nigerian pop, log drum, shekere percussion, talking drum, melodic male vocalist, Lagos energy, catchy hook, danceable, 95 BPM, warm bass, radio-ready',
+    negativeTags: 'generic pop, Western pop, bland, elevator music, EDM, techno',
+    vibe: 'hype celebratory Afrobeats — think street energy meets emotion',
+    lyricStyle: `Write in natural Nigerian Pidgin English mixed with occasional English. 
+Short punchy lines. Strong rhyme scheme. 
+Chorus must be a 4-line hook that people can sing along to after one listen.
+Use specific Nigerian expressions: "e don happen", "God don do am", "na you be the one", "we move".
+Reference real Nigerian life: Lagos traffic, grinding, God's blessing, hustling paying off.
+Zero generic lines. Every line must connect to the person's actual story.`,
   },
+
+  // ── AMAPIANO ──────────────────────────────────────────────────
   amapiano: {
-    sunoTags: 'Amapiano, log drum piano stabs, South African house influence, groovy, 115 BPM, deep bass, Nigerian vocalist, smooth, melodic',
-    vibe: 'smooth and groovy Amapiano',
+    sunoTags: 'Amapiano, log drum piano stabs, deep bass, groovy, 114 BPM, Nigerian vocalist, melodic, smooth, infectious groove, South African house influence, warm production',
+    negativeTags: 'harsh, aggressive, fast rap, heavy metal, rock',
+    vibe: 'smooth groovy Amapiano — laid back but deeply infectious',
+    lyricStyle: `Write in smooth Nigerian Pidgin or English. 
+Flowing melodic lines that match slow groove.
+Chorus feels almost like a chant — hypnotic and repetitive in a good way.
+Lines about celebrating life, good times, love, or success.
+Not too many words per line — space for the melody to breathe.`,
   },
-  igbo_highlife: {
-    sunoTags: 'Igbo highlife, ogene metallic percussion, traditional Anambra sound, call and response vocals, celebratory, acoustic guitar, Igbo male singer, festive energy',
-    vibe: 'celebratory Igbo traditional highlife with ogene',
-  },
-  pidgin_igbo: {
-    sunoTags: 'Afrobeats fusion, Pidgin English verses mixed with Igbo chorus naturally, ogene percussion underneath modern beat, Lagos meets Enugu sound, catchy hook, emotional, heartfelt vocal delivery, 95 BPM',
-    vibe: 'Pidgin and Igbo fusion Afrobeats',
-  },
-  yoruba_juju: {
-    sunoTags: 'Yoruba juju music, talking drum dundun, guitar, Yoruba praise singing oriki style, traditional Nigerian sound, Yoruba male vocalist, celebratory, rich percussion',
-    vibe: 'traditional Yoruba juju praise singing',
-  },
-  gospel: {
-    sunoTags: 'Nigerian gospel, choir backing vocals, uplifting piano, powerful drums, thanksgiving, Afro-gospel, passionate Nigerian vocalist, worship energy, spoken word testimony rap bars, melodic hook, faith and praise theme',
-    vibe: 'powerful Nigerian gospel and gospel rap',
-  },
+
+  // ── NAIJA STREET POP ──────────────────────────────────────────
   street_pop: {
-    sunoTags: 'Nigerian street pop, raw street energy, talking drum samples, trap hi-hats, melodic autotune vocals, Pidgin English, catchy hook, Lagos nightlife sound, 100 BPM',
-    vibe: 'raw Nigerian street pop energy',
+    sunoTags: 'Nigerian street pop, raw street energy, trap hi-hats, talking drum, melodic autotune vocals, Pidgin English, punchy bass, catchy hook, 100 BPM, Lagos nightlife, youthful energy',
+    negativeTags: 'country, folk, acoustic, classical, old school',
+    vibe: 'raw youthful Nigerian street pop — hunger, hustle, and celebration',
+    lyricStyle: `Write in raw Nigerian Pidgin. Very street. Very real.
+Short sharp lines. Fast delivery implied.
+Reference youth culture: grinding, making it, God, streets, flex.
+Chorus is short and punchy — 2 to 4 lines maximum, very repeatable.
+At least one line should feel like it could trend on TikTok.`,
   },
-  naija_rap: {
-    sunoTags: 'Nigerian street rap, fast Pidgin English flow, heavy 808 bass, Afrobeats percussion, Lagos street slang, raw aggressive energy, rapid fire delivery, trap hi-hats, hard hitting bars',
-    vibe: 'hard Nigerian street rap Pidgin flow',
-  },
-  eminem_rap: {
-    sunoTags: 'fast technical rap, complex multisyllabic rhyme schemes, emotional storytelling, rapid fire delivery, English lyrics, dramatic cinematic beat, intense narrative, powerful vocal performance',
-    vibe: 'fast technical English rap storytelling',
-  },
+
+  // ── PIDGIN + YORUBA MIX ───────────────────────────────────────
   pidgin_mix: {
-    sunoTags: 'Afrobeats, Pidgin English lyrics, Yoruba ad-libs scattered naturally, modern Nigerian sound, catchy hook, radio-ready, deep bass, emotional, warm vocal tone, 95 BPM',
-    vibe: 'mixed Naija Pidgin and Yoruba Afrobeats',
+    sunoTags: 'Afrobeats, Pidgin English verses, Yoruba ad-libs and chorus naturally blended, deep bass, modern Nigerian production, emotional warmth, 95 BPM, soulful male vocals',
+    negativeTags: 'generic pop, Western, bland, EDM',
+    vibe: 'Pidgin and Yoruba blended naturally like real Lagos music',
+    lyricStyle: `Write verses in Nigerian Pidgin. Chorus or key ad-libs in Yoruba.
+The Yoruba should feel natural not forced — short cultural phrases, praises, exclamations.
+Examples of natural Yoruba insertions: "omo", "e ma worry", "Olorun ti soro" (God has spoken), praise names.
+The blend should feel like real Nigerian music, not two languages fighting each other.`,
+  },
+
+  // ── IGBO HIGHLIFE + OGENE ─────────────────────────────────────
+  igbo_highlife: {
+    sunoTags: 'Igbo highlife, ogene metallic percussion, traditional Anambra rhythm, call and response vocals, acoustic guitar, festive Igbo energy, Onitsha sound, rich percussion, celebratory',
+    negativeTags: 'Western pop, rap, trap, EDM, generic',
+    vibe: 'authentic Igbo highlife with ogene — festive and deeply cultural',
+    lyricStyle: `Write in authentic Igbo. Include real Igbo proverbs and praise names.
+Structure for ogene call-and-response: short call line, short response line.
+Examples of authentic elements:
+- Praise names: "Nna m" (my father), "Nne m" (my mother), "Eze" (king/chief)
+- Proverbs: "Onye wetara oji wetara ndu" (one who brings kola brings life)
+- Exclamations: "Chineke!", "Isee!", "O dị mma!"
+Chorus should be a short repeatable Igbo phrase people can chant.
+Keep lines short to match ogene call-and-response rhythm.`,
+  },
+
+  // ── PIDGIN + IGBO FUSION ──────────────────────────────────────
+  pidgin_igbo: {
+    sunoTags: 'Afrobeats fusion, Pidgin English verses, Igbo chorus and ad-libs naturally blended, ogene percussion underneath modern beat, emotional, southeastern Nigeria sound, 95 BPM, heartfelt vocals',
+    negativeTags: 'generic pop, Western, bland, harsh',
+    vibe: 'Pidgin verses with Igbo chorus — modern southeastern sound',
+    lyricStyle: `Write verses in Nigerian Pidgin. Chorus in Igbo with natural Pidgin ad-libs.
+The Igbo chorus should include at least one real Igbo proverb or praise expression.
+Example flow: Pidgin verse tells the story → Igbo chorus celebrates or reflects.
+Make the cultural blend feel like it came from someone from Enugu or Anambra living in Lagos.`,
+  },
+
+  // ── YORUBA JUJU / PRAISE ──────────────────────────────────────
+  yoruba_juju: {
+    sunoTags: 'Yoruba juju music, talking drum dundun, guitar, traditional Nigerian, oriki praise singing, rich percussion, call and response, Yoruba male vocalist, celebratory, cultural depth',
+    negativeTags: 'rap, trap, EDM, Western pop, generic AI vocals',
+    vibe: 'traditional Yoruba juju praise singing with oriki',
+    lyricStyle: `Write in proper Yoruba. This is oriki — praise poetry.
+Structure: praise the person, list their qualities and lineage, call on blessings.
+Use Yoruba cultural expressions naturally:
+- "Omo adun" (sweet child), "Olowo ori mi" (my crown), "E jowo" (please/blessings)
+- Reference Yoruba towns, families, or cultural identity if person mentions it
+Repeat the person's name naturally in praise.
+The rhythm should feel like a griot singing someone's praises.`,
+  },
+
+  // ── GOSPEL ───────────────────────────────────────────────────
+  gospel: {
+    sunoTags: 'Nigerian gospel, powerful choir backing vocals, uplifting piano, worship drums, Afro-gospel, passionate Nigerian vocalist, thanksgiving theme, atmospheric, emotional build, 75 BPM',
+    negativeTags: 'rap, aggressive, fast, trap, street, party',
+    vibe: 'powerful slow Nigerian gospel worship — emotional and spirit-filled',
+    lyricStyle: `Write in Nigerian Pidgin English mixed with English.
+This is worship — intimate, grateful, powerful.
+Reference God's faithfulness, testimony, answered prayer.
+Use real Nigerian gospel expressions: "God you too good", "na you do am", "I lift my hands".
+Chorus should be a prayer or declaration people can sing in church.
+Include at least one verse that tells a specific testimony or story of breakthrough.
+Avoid clichés. Every line should feel genuine and personal.`,
+  },
+
+  // ── DEEP WORSHIP ──────────────────────────────────────────────
+  deep_worship: {
+    sunoTags: 'Nigerian deep worship, slow atmospheric piano, ambient strings, breathy intimate vocals, very slow 60 BPM, spiritual depth, Theophilus Sunday style sound, reverent, emotional, minimalist production',
+    negativeTags: 'fast, upbeat, rap, party, aggressive, loud',
+    vibe: 'slow intimate Nigerian deep worship — Theophilus Sunday atmosphere',
+    lyricStyle: `Write in English with occasional Pidgin or Yoruba/Igbo worship phrases.
+This is intimate prayer set to music. Very slow, very personal.
+Lines should feel like someone is alone with God.
+Reference: surrender, peace, dwelling in God's presence, being overwhelmed by love.
+Structure: long flowing lines, not short punchy bars.
+Chorus is a simple repeated declaration: "You are enough", "I surrender all", "Nothing else matters".
+Think Theophilus Sunday, Nathaniel Bassey slow worship.`,
+  },
+
+  // ── GOSPEL CHANTS ─────────────────────────────────────────────
+  gospel_chant: {
+    sunoTags: 'Nigerian gospel chant, Lawrence Oyor style, traditional African chanting, call and response congregation, drumming, organic percussion, spiritual depth, repetitive blessing chant, powerful',
+    negativeTags: 'pop, EDM, Western, synthesizer-heavy, generic',
+    vibe: 'Nigerian gospel chant — Lawrence Oyor congregation feel',
+    lyricStyle: `Write in a mix of English, Pidgin and Yoruba/Igbo chant phrases.
+This is repetitive and hypnotic by design — like a church chant or chorus everyone joins.
+Short lines, repeated with variations.
+Call: "God is good!" Response: "All the time!"
+Include real African church chant patterns.
+Reference scripture naturally, not formally.
+Should feel like 500 people in a church joining in together.`,
+  },
+
+  // ── PRAISE ────────────────────────────────────────────────────
+  gospel_praise: {
+    sunoTags: 'Nigerian praise music, upbeat gospel, Prince Emmanuel style, energetic choir, praise and worship drums, exciting trumpet, joyful, celebration, 110 BPM, clapping congregation feel',
+    negativeTags: 'slow, sad, dark, rap, street, party',
+    vibe: 'energetic Nigerian praise — Prince Emmanuel church celebration feel',
+    lyricStyle: `Write in Pidgin English and English, joyful and celebratory.
+This is praise — loud, grateful, excited.
+Reference God's goodness, victories, answered prayers.
+Lines should make people want to clap and dance.
+Chorus should be a shout of praise: "God you are great!", "Lift up holy hands!".
+Include specific testimonies of breakthrough, healing, promotion.
+Energy should feel like a church about to erupt in celebration.`,
+  },
+
+  // ── CHRISTIAN RAP (ECG STYLE) ─────────────────────────────────
+  christian_rap: {
+    sunoTags: 'Christian hip hop, Nigerian gospel rap, spoken word testimony bars, trap beats with church choir underneath, Pidgin English bars, faith theme, inspirational, ECG style sound, powerful delivery',
+    negativeTags: 'secular, party, club, explicit, generic rap',
+    vibe: 'Nigerian Christian rap — ECG style testimony bars',
+    lyricStyle: `Write in Nigerian Pidgin English bars. This is Christian rap not soft gospel.
+Hard hitting bars with real content: testimony, faith struggle, breakthrough, God's grace.
+Rap verse: tell a real story of struggle and how God came through.
+Hook/Chorus: melodic, singable, declaration of faith.
+Use real Pidgin street language but directed toward faith.
+Examples: "I been down but God lift me", "dem say I no go make am but God said otherwise".
+Zero clichés. Make it sound like a real person's testimony rapped.`,
+  },
+
+  // ── NAIJA STREET RAP ──────────────────────────────────────────
+  naija_rap: {
+    sunoTags: 'Nigerian street rap, fast aggressive Pidgin English flow, heavy 808 bass, Afrobeats percussion, trap hi-hats, raw Lagos energy, hard hitting bars, rapid delivery, street credibility',
+    negativeTags: 'soft, slow, gospel, church, acoustic, country',
+    vibe: 'hard Nigerian street rap — raw Lagos Pidgin bars',
+    lyricStyle: `Write in raw aggressive Nigerian Pidgin. Very street. Very fast.
+Hard bars. Real talk. Reference hustle, streets, grinding, success, proving doubters wrong.
+Rhyme scheme must be tight — AABB or ABAB, consistent throughout.
+Include Nigerian street slang naturally: "e don cast", "dem no fit stop us", "area", "show dem".
+Hook should be short and powerful — 2 lines maximum, very memorable.
+Verse should tell a story of where you came from and where you're going.`,
+  },
+
+  // ── FAST ENGLISH RAP ──────────────────────────────────────────
+  eminem_rap: {
+    sunoTags: 'fast technical rap, complex multisyllabic rhyme schemes, rapid fire English delivery, emotional storytelling, cinematic dramatic beat, intense narrative, powerful vulnerable vocals, introspective',
+    negativeTags: 'Afrobeats, Nigerian, slow, mellow, generic pop',
+    vibe: 'fast technical emotional English rap — storytelling with complex rhymes',
+    lyricStyle: `Write in English. Fast delivery implied.
+Complex multisyllabic rhyme schemes — every line should have internal rhymes too.
+This is storytelling rap. Every verse tells a chapter of the person's story.
+Emotional arc: struggle → determination → breakthrough.
+Do not use simple rhymes. "time/rhyme" is boring. Use: "situation/dedication/imagination" level complexity.
+Hook is melodic, not rapped — a moment of vulnerability in the song.
+Make the listener feel the person's journey deeply.`,
+  },
+
+  // ── SLOW SOUL / LIFE SONG ─────────────────────────────────────
+  slow_soul: {
+    sunoTags: 'Nigerian soul, slow emotional ballad, piano-led, soft drums, warm bass, intimate vocals, introspective, life reflection, 65 BPM, soulful, emotional depth, Warren style sound',
+    negativeTags: 'fast, aggressive, party, rap, electronic',
+    vibe: 'slow soul-touching life song — personal and deeply emotional',
+    lyricStyle: `Write in English with natural Pidgin phrases.
+This is a personal life reflection song. Intimate and vulnerable.
+About real human experiences: loneliness, hope, growth, loving yourself, perseverance.
+Long flowing lines that feel like diary entries set to music.
+Chorus is a simple emotional truth: "I'm still standing", "This too shall pass", "I choose to rise".
+Reference specific real human moments: crying alone, almost giving up, finding strength.
+Make the person listening feel truly understood.`,
+  },
+
+  // ── HAUSA / PIDGIN ────────────────────────────────────────────
+  hausa_pidgin: {
+    sunoTags: 'Northern Nigerian sound, Hausa cultural music, talking drum, traditional percussion, melodic male vocalist, Hausa and Pidgin blend, warm celebratory, 90 BPM, cultural authenticity',
+    negativeTags: 'Western pop, EDM, harsh, aggressive, generic',
+    vibe: 'Hausa cultural music blended naturally with Pidgin',
+    lyricStyle: `Write in Hausa naturally mixed with Nigerian Pidgin.
+Use real Hausa expressions and cultural warmth:
+- Greetings and blessings: "Sannu", "Nagode" (thank you), "Allah ya kyauta" (God bless)
+- Praise: "Ka yi kyau" (you did well), "Gaskiya" (truth)
+The blend should feel like someone from Kano or Kaduna who also speaks Pidgin.
+Chorus should be a Hausa phrase that is short and meaningful.
+Reference northern Nigerian culture: family values, God's blessing, community.`,
   },
 };
 
+// Premium languages requiring deeper cultural knowledge
 const PREMIUM_LANGUAGES = [
   'Igbo',
   'Yoruba',
   'Hausa',
   'Nigerian Pidgin mixed with Yoruba naturally',
   'Nigerian Pidgin mixed with Igbo naturally',
+  'Hausa mixed with Pidgin',
 ];
 
 function isPremiumLanguage(language) {
-  return PREMIUM_LANGUAGES.some(l => language?.includes(l.split(' ')[0]));
+  if (!language) return false;
+  return PREMIUM_LANGUAGES.some(l => language.toLowerCase().includes(l.toLowerCase().split(' ')[0].toLowerCase()));
 }
 
+// The single creative decision point — returns everything MusicService needs
 async function buildMusicPrompt(session) {
   const genre = session.music_genre || 'afrobeats';
   const occasion = session.music_occasion || 'celebration';
-  const personName = session.music_person_name || '';
+  const personName = session.music_person_name || 'the celebrant';
   const userStory = session.music_story || session.voice_transcript || '';
   const language = session.music_language || 'Nigerian Pidgin English';
   const customLyrics = session.music_custom_lyrics || null;
-  const genreConfig = GENRE_CONFIGS[genre] || GENRE_CONFIGS.afrobeats;
+  const dna = MUSIC_DNA[genre] || MUSIC_DNA.afrobeats;
 
+  // If user wrote their own lyrics — skip GPT for lyrics, just build Suno params
   if (customLyrics) {
-    const sunoPrompt = `${genreConfig.sunoTags}. Song about ${occasion} for ${personName}.`;
     return {
       lyrics: customLyrics,
-      sunoPrompt,
-      title: `${personName} - ${occasion}`,
-      previewLine: customLyrics.split('\n').find(l => l.trim().length > 10) || customLyrics.slice(0, 60),
+      title: `${personName} — ${occasion}`,
+      tags: dna.sunoTags,
+      negativeTags: dna.negativeTags,
+      coverPrompt: `${genre} music cover art for a song called "${personName}", Nigerian aesthetic, vibrant, cultural`,
+      previewLine: customLyrics.split('\n').find(l => l.trim().length > 10) || customLyrics.slice(0, 80),
+      mode: 'custom',
     };
   }
 
-  const systemPrompt = `You are a professional Nigerian music lyricist and Suno AI prompt engineer with deep knowledge of Nigerian cultures.
+  // Build the creative brief for GPT
+  const systemPrompt = `You are a professional Nigerian music lyricist. Your job is to write authentic, deeply personal Nigerian songs that sound like they were written by a real Nigerian artist — not an AI.
 
-Your expertise:
-- Pidgin English: natural flow, street expressions, correct Nigerian cadence
-- Igbo: correct grammar, praise names (Nna m, Nne m, O di mma, Chineke), proverbs, Anambra/Enugu/Imo dialects, ogene call-and-response patterns
-- Yoruba: correct tones, oriki praise poetry, cultural expressions, juju music phrasing
-- Hausa: natural warm phrasing and cultural expressions
-- Nigerian Rap: fast Pidgin English flow, hard bars, street energy, Lagos slang
-- Gospel Rap: testimony-driven, Pidgin bars over gospel beats, faith and praise theme
-- Fast technical English rap: complex multisyllabic rhymes, emotional storytelling, rapid fire delivery
-- How real Nigerian artists mix languages naturally
+GOLDEN RULES:
+1. Every single line must connect to the specific person and story given. Zero generic filler lines.
+2. The chorus must be something people will remember after one listen.
+3. Language must be culturally authentic — not translated English wearing Pidgin clothes.
+4. Do NOT reference any specific artist names anywhere.
+5. Emotional payoff is mandatory — the song must make the recipient feel something real.
+6. Structure tags are mandatory: [Verse], [Chorus], [Bridge] or [Outro]
+7. Total lyrics: 60-90 seconds when sung (150-220 words max)
 
-Suno AI technical knowledge:
-- Use [Verse], [Chorus], [Bridge], [Outro] structure tags
-- For rap: use [Verse - Rap] and [Hook] tags
-- Keep total lyrics to 60-90 seconds when sung (roughly 150-200 words)
-- For rap: write bars with clear rhythm and rhyme scheme
-- For gospel rap: alternate between rap bars and melodic chorus
-- IMPORTANT: Never reference specific artist names anywhere in lyrics or prompts
+LYRIC WRITING STYLE FOR THIS GENRE:
+${dna.lyricStyle}
 
-Return ONLY valid JSON. No markdown. No explanation. No code fences. Raw JSON only:
+Return ONLY valid JSON. No markdown. No explanation. Raw JSON:
 {
-  "lyrics": "full song lyrics with section tags",
-  "sunoPrompt": "complete Suno style prompt with genre tags, vocal direction, instruments, energy, BPM -- NO artist names",
-  "title": "song title",
-  "previewLine": "the catchiest line from the chorus or hook"
+  "lyrics": "structured lyrics with tags",
+  "title": "creative song title",
+  "previewLine": "most memorable line from chorus"
 }`;
 
-  const userPrompt = `Create a ${genreConfig.vibe} song with these exact details:
+  const userPrompt = `Write a ${dna.vibe} song.
 
+RECIPIENT: ${personName}
 OCCASION: ${occasion}
-WHO IT IS FOR: ${personName}
-STORY/MESSAGE FROM USER: ${userStory}
+THEIR STORY (use every detail): ${userStory || 'A special celebratory song'}
 LANGUAGE: ${language}
-GENRE STYLE TAGS FOR SUNO: ${genreConfig.sunoTags}
 
-REQUIREMENTS:
-- Make it deeply personal using the specific details above
-- Language must be authentic ${language}
-- For Igbo/Pidgin-Igbo: include at least one Igbo proverb or praise name
-- For Yoruba: include oriki-style praise lines
-- For Pidgin: use real street expressions
-- For Naija Rap: fast Pidgin flow, heavy bars, street energy, Lagos slang
-- For Gospel Rap: testimony-driven bars, hope and faith theme
-- For fast technical rap: complex rhyme schemes, rapid delivery, emotional storytelling in English
-- Chorus/Hook must be catchy and memorable
-- The song should make the person it is for feel special
-- Do NOT reference any specific artist names anywhere in lyrics or Suno prompt`;
+The song must:
+- Use the recipient's name naturally at least twice
+- Reference at least one specific detail from their story
+- Have a chorus people will sing along to after one listen
+- Feel like it was made specifically for this person, not a template`;
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o',
-    max_tokens: 1500,
+    max_tokens: 1200,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
     response_format: { type: 'json_object' },
+    temperature: 0.85, // slightly creative but controlled
   });
 
   const raw = response.choices[0].message.content;
 
+  let parsed;
   try {
-    return JSON.parse(raw);
+    parsed = JSON.parse(raw);
   } catch (err) {
-    console.error('promptBuilder JSON parse error. Raw output:', raw);
-    throw new Error('Failed to parse music prompt from GPT');
+    console.error('promptBuilder parse error:', raw);
+    throw new Error('Failed to parse lyrics from GPT');
   }
+
+  return {
+    lyrics: parsed.lyrics,
+    title: parsed.title || `${personName} — ${occasion}`,
+    tags: dna.sunoTags,
+    negativeTags: dna.negativeTags,
+    coverPrompt: `Nigerian music cover art, ${genre} style, for a song called "${parsed.title || personName}", vibrant cultural aesthetic, professional album art`,
+    previewLine: parsed.previewLine || '',
+    mode: 'custom',
+  };
 }
 
-module.exports = { buildMusicPrompt, GENRE_CONFIGS, isPremiumLanguage };
+module.exports = { buildMusicPrompt, MUSIC_DNA, isPremiumLanguage };

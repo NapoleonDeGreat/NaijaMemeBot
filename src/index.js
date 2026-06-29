@@ -158,6 +158,8 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_using_custom BOOLEAN DEFAULT
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_generated_lyrics TEXT;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_suno_prompt TEXT;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_title TEXT;
+ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_suno_negative TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS music_using_custom BOOLEAN DEFAULT FALSE;
  `);
 
     console.log('✅ Migration complete');

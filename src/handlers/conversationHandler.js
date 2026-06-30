@@ -192,13 +192,18 @@ async function handleIncomingMessage(phone, message, messageId) {
     case 'AWAITING_SHOUTOUT': return handleShoutoutDecision(phone, session, message);
     // Music states
     case 'MUSIC_CATEGORY': return handleMusicCategory(phone, session, message);
-    case 'MUSIC_GENRE': return handleMusicGenre(phone, session, message);
-    case 'MUSIC_PERSON_NAME': return handleMusicPersonName(phone, session, message);
-    case 'MUSIC_LANGUAGE': return handleMusicLanguage(phone, session, message);
-    case 'MUSIC_STORY': return handleMusicStory(phone, session, message);
-    case 'MUSIC_LYRICS_CONFIRM': return handleLyricsConfirm(phone, session, message);
-    case 'MUSIC_LYRICS_EDIT': return handleLyricsEdit(phone, session, message);
-    case 'MUSIC_AWAITING_PAYMENT': return handleMusicPaymentCheck(phone, session, message);
+case 'MUSIC_GENRE': return handleMusicGenre(phone, session, message);
+case 'MUSIC_BUSINESS_INFO': return handleMusicBusinessInfo(phone, session, message);
+case 'MUSIC_PERSON_NAME': return handleMusicPersonName(phone, session, message);
+case 'MUSIC_VOCAL_GENDER': return handleMusicVocalGender(phone, session, message);
+case 'MUSIC_LANGUAGE': return handleMusicLanguage(phone, session, message);
+case 'MUSIC_STORY': return handleMusicStory(phone, session, message);
+case 'MUSIC_LYRICS_CONFIRM': return handleLyricsConfirm(phone, session, message);
+case 'MUSIC_LYRICS_EDIT': return handleLyricsEdit(phone, session, message);
+case 'MUSIC_AWAITING_PAYMENT': return handleMusicPaymentCheck(phone, session, message);
+case 'MUSIC_OFFER_FORWARD': return handleMusicForwardDecision(phone, session, message);
+case 'MUSIC_FORWARD_NUMBER': return handleMusicForwardNumber(phone, session, message);
+
     // Shared
     case 'AWAITING_FEEDBACK_RATING': return handleFeedbackRating(phone, session, message);
     case 'AWAITING_FEEDBACK_COMMENT': return handleFeedbackComment(phone, session, message);
@@ -239,13 +244,13 @@ async function handleMainMenuSelection(phone, session, message) {
 
   if (selected === 'MAIN_SONG') {
     await sessionSvc.updateSession(session.id, { state: 'MUSIC_CATEGORY', mode: 'song' });
-    return sendMusicCategoryMenu(phone);
+    return sendMusicOccasionMenu(phone);
   }
 
   if (selected === 'MAIN_BUNDLE') {
     await sessionSvc.updateSession(session.id, { state: 'MUSIC_CATEGORY', mode: 'bundle' });
     await wa.sendText(phone, '🎁 *Flyer + Song Bundle* selected! ₦2,000 for both 🔥\n\nLet\'s start with your song 🎵');
-    return sendMusicCategoryMenu(phone);
+    return sendMusicOccasionMenu(phone);
   }
 
   return sendMainMenu(phone);
@@ -840,36 +845,41 @@ async function handleShoutoutDecision(phone, session, message) {
     return askForFeedback(phone, session.id);
   } else if (btnId === 'SHOUTOUT_NO') {
     await wa.sendText(phone, '🔥 Your flyer don ready! Save am and share!');
-    return askForFeedback(phone, session.id);
-  }
-}
+    return askForFeedback(phone, t.title}*\n\nYour song don ready! 🔥\n\nSave am, share am on WhatsApp Status, send am to who it's for 💚\n\n_Made with NaijaMeme Studio 🎨🎵_`
+    );
 
-// ══════════════════════════════════════════════════════
-// MUSIC FLOW — REDESIGNED
-// Step 1: Category (Afrobeats/Gospel/Rap/Traditional/Soul)
-// Step 2: Genre (subcategory within that category)
-// Step 3: Who is it for
-// Step 4: Language
-// Step 5: Story / lyrics choice
-// Step 6: Lyrics confirm
-// Step 7: Payment → Generate
+  // ══════════════════════════════════════════════════════
+// MUSIC FLOW — OCCASION FIRST
+// Step 1: Occasion (plain language, what is this for)
+// Step 2: Genre (2-3 recommended options per occasion)
+// Step 3: Who is it for (skipped for worship/business)
+// Step 4: Vocal gender (mandatory — prevents Suno randomization)
+// Step 5: Language
+// Step 6: Story / lyrics choice
+// Step 7: Lyrics confirm
+// Step 8: Payment → Generate → Offer forward
 // ══════════════════════════════════════════════════════
 
-async function sendMusicCategoryMenu(phone) {
+const SKIP_RECIPIENT_OCCASIONS = new Set(['worship', 'business']);
+
+async function sendMusicOccasionMenu(phone) {
   return wa.sendList(
     phone,
-    '🎵 Choose Your Sound',
-    'What category of music do you want?\n\nEach category has different styles inside 👇',
-    'Pick Category',
+    '🎵 What Is This Song For?',
+    'Tell us the occasion and we will recommend the perfect sound 👇',
+    'Pick Occasion',
     [
       {
-        title: 'Music Categories',
+        title: 'Choose Occasion',
         rows: [
-          { id: 'MCAT_afrobeats', title: '🔥 Afrobeats & Pop' },
-          { id: 'MCAT_gospel', title: '🙏 Gospel & Worship' },
-          { id: 'MCAT_rap', title: '🎤 Rap & Spoken Word' },
-          { id: 'MCAT_traditional', title: '🥁 Traditional & Cultural' },
-          { id: 'MCAT_soul', title: '💫 Soul & Life Songs' },
+          { id: 'OCC_birthday', title: '🎂 Birthday' },
+          { id: 'OCC_romance', title: '💕 Romance / Love' },
+          { id: 'OCC_business', title: '💼 Business / Jingle' },
+          { id: 'OCC_worship', title: '🙏 Worship / Spiritual' },
+          { id: 'OCC_owambe', title: '🎉 Owambe / Party' },
+          { id: 'OCC_graduation', title: '🎓 Graduation' },
+          { id: 'OCC_banter', title: '😂 Banter / Roast' },
+          { id: 'OCC_lifesong', title: '💫 Just Because' },
         ],
       },
     ]
@@ -879,117 +889,111 @@ async function sendMusicCategoryMenu(phone) {
 async function handleMusicCategory(phone, session, message) {
   const selected = message.interactive?.list_reply?.id;
 
-  const categoryMenus = {
-    MCAT_afrobeats: sendAfrobeatsMenu,
-    MCAT_gospel: sendGospelMenu,
-    MCAT_rap: sendRapMenu,
-    MCAT_traditional: sendTraditionalMenu,
-    MCAT_soul: sendSoulMenu,
+  const occasionMap = {
+    OCC_birthday: 'birthday',
+    OCC_romance: 'romance',
+    OCC_business: 'business',
+    OCC_worship: 'worship',
+    OCC_owambe: 'owambe',
+    OCC_graduation: 'graduation',
+    OCC_banter: 'banter',
+    OCC_lifesong: 'lifesong',
   };
 
-  const menuFn = categoryMenus[selected];
-  if (!menuFn) return sendMusicCategoryMenu(phone);
+  const occasion = occasionMap[selected];
+  if (!occasion) return sendMusicOccasionMenu(phone);
 
-  await sessionSvc.updateSession(session.id, { state: 'MUSIC_GENRE' });
-  return menuFn(phone);
+  await sessionSvc.updateSession(session.id, { music_occasion: occasion, state: 'MUSIC_GENRE' });
+  return sendGenreRecommendation(phone, occasion);
 }
 
-async function sendAfrobeatsMenu(phone) {
-  return wa.sendList(
-    phone,
-    '🔥 Afrobeats & Pop',
-    'Which Afrobeats style?',
-    'Pick Style',
-    [
-      {
-        title: 'Afrobeats Styles',
-        rows: [
-          { id: 'GENRE_afrobeats', title: '🎵 Naija Afrobeats' },
-          { id: 'GENRE_amapiano', title: '🎹 Amapiano' },
-          { id: 'GENRE_street_pop', title: '🏙️ Street Pop' },
-          { id: 'GENRE_pidgin_mix', title: '🌍 Pidgin + Yoruba Mix' },
-        ],
-      },
-    ]
-  );
-}
+// Each occasion recommends genres in PLAIN sound-language, not genre jargon
+async function sendGenreRecommendation(phone, occasion) {
+  const recommendations = {
+    birthday: {
+      header: '🎂 Birthday Song',
+      body: 'Pick the sound you want',
+      rows: [
+        { id: 'GENRE_afrobeats', title: '🔥 Upbeat & Danceable' },
+        { id: 'GENRE_gospel_praise', title: '🎺 Joyful Thanksgiving' },
+        { id: 'GENRE_slow_soul', title: '💫 Slow & Heartfelt' },
+      ],
+    },
+    romance: {
+      header: '💕 Love Song',
+      body: 'Pick the sound you want',
+      rows: [
+        { id: 'GENRE_slow_soul', title: '💔 Slow & Emotional' },
+        { id: 'GENRE_afrobeats', title: '🔥 Upbeat Love Anthem' },
+        { id: 'GENRE_yoruba_juju', title: '🎸 Traditional Praise' },
+      ],
+    },
+    business: {
+      header: '💼 Business Jingle',
+      body: 'Pick the sound you want',
+      rows: [
+        { id: 'GENRE_afrobeats', title: '🔥 Catchy & Energetic' },
+        { id: 'GENRE_amapiano', title: '🎹 Smooth & Modern' },
+        { id: 'GENRE_street_pop', title: '🏙️ Youthful & Trendy' },
+      ],
+    },
+    worship: {
+      header: '🙏 Worship Song',
+      body: 'Pick the sound you want',
+      rows: [
+        { id: 'GENRE_gospel', title: '🎶 Upbeat Praise' },
+        { id: 'GENRE_deep_worship', title: '✨ Slow Intimate Worship' },
+        { id: 'GENRE_gospel_chant', title: '🥁 Chant & Declaration' },
+        { id: 'GENRE_gospel_praise', title: '🎺 Energetic Celebration' },
+        { id: 'GENRE_christian_rap', title: '🎤 Testimony Rap' },
+      ],
+    },
+    owambe: {
+      header: '🎉 Owambe / Party',
+      body: 'Pick the sound you want',
+      rows: [
+        { id: 'GENRE_afrobeats', title: '🔥 Naija Afrobeats' },
+        { id: 'GENRE_amapiano', title: '🎹 Amapiano Groove' },
+        { id: 'GENRE_yoruba_juju', title: '🎸 Traditional Praise' },
+      ],
+    },
+    graduation: {
+      header: '🎓 Graduation Song',
+      body: 'Pick the sound you want',
+      rows: [
+        { id: 'GENRE_gospel_praise', title: '🎺 Joyful Celebration' },
+        { id: 'GENRE_afrobeats', title: '🔥 Hype & Proud' },
+        { id: 'GENRE_slow_soul', title: '💫 Reflective & Emotional' },
+      ],
+    },
+    banter: {
+      header: '😂 Banter / Roast',
+      body: 'Pick the sound you want',
+      rows: [
+        { id: 'GENRE_naija_rap', title: '🎙️ Hard Street Rap' },
+        { id: 'GENRE_street_pop', title: '🏙️ Funny Street Pop' },
+        { id: 'GENRE_eminem_rap', title: '⚡ Fast Technical Rap' },
+      ],
+    },
+    lifesong: {
+      header: '💫 Life Song',
+      body: 'Pick the sound you want',
+      rows: [
+        { id: 'GENRE_slow_soul', title: '💔 Slow Soul / Reflection' },
+        { id: 'GENRE_deep_worship', title: '✨ Spiritual & Calm' },
+        { id: 'GENRE_amapiano', title: '🎹 Smooth Groove' },
+      ],
+    },
+  };
 
-async function sendGospelMenu(phone) {
-  return wa.sendList(
-    phone,
-    '🙏 Gospel & Worship',
-    'Which gospel style?',
-    'Pick Style',
-    [
-      {
-        title: 'Gospel Styles',
-        rows: [
-          { id: 'GENRE_gospel', title: '🎶 Afro-Gospel Praise' },
-          { id: 'GENRE_deep_worship', title: '✨ Deep Slow Worship' },
-          { id: 'GENRE_gospel_chant', title: '🥁 Gospel Chant' },
-          { id: 'GENRE_gospel_praise', title: '🎺 Energetic Praise' },
-          { id: 'GENRE_christian_rap', title: '🎤 Christian Rap' },
-        ],
-      },
-    ]
-  );
-}
+  const rec = recommendations[occasion] || recommendations.birthday;
 
-async function sendRapMenu(phone) {
   return wa.sendList(
     phone,
-    '🎤 Rap & Spoken Word',
-    'Which rap style?',
-    'Pick Style',
-    [
-      {
-        title: 'Rap Styles',
-        rows: [
-          { id: 'GENRE_naija_rap', title: '🏙️ Naija Street Rap' },
-          { id: 'GENRE_christian_rap', title: '✝️ Christian Rap' },
-          { id: 'GENRE_eminem_rap', title: '⚡ Fast Technical Rap' },
-        ],
-      },
-    ]
-  );
-}
-
-async function sendTraditionalMenu(phone) {
-  return wa.sendList(
-    phone,
-    '🥁 Traditional & Cultural',
-    'Which cultural style?',
-    'Pick Style',
-    [
-      {
-        title: 'Cultural Styles',
-        rows: [
-          { id: 'GENRE_igbo_highlife', title: '🥁 Igbo Highlife + Ogene' },
-          { id: 'GENRE_pidgin_igbo', title: '🔀 Pidgin + Igbo Fusion' },
-          { id: 'GENRE_yoruba_juju', title: '🎸 Yoruba Juju + Oriki' },
-          { id: 'GENRE_hausa_pidgin', title: '🌙 Hausa + Pidgin' },
-        ],
-      },
-    ]
-  );
-}
-
-async function sendSoulMenu(phone) {
-  return wa.sendList(
-    phone,
-    '💫 Soul & Life Songs',
-    'Which soul style?',
-    'Pick Style',
-    [
-      {
-        title: 'Soul Styles',
-        rows: [
-          { id: 'GENRE_slow_soul', title: '💔 Slow Soul / Life Song' },
-          { id: 'GENRE_amapiano', title: '🎹 Smooth Amapiano' },
-          { id: 'GENRE_deep_worship', title: '✨ Deep Worship' },
-        ],
-      },
-    ]
+    rec.header,
+    rec.body,
+    'Pick Sound',
+    [{ title: 'Recommended Sounds', rows: rec.rows }]
   );
 }
 
@@ -1016,50 +1020,116 @@ async function handleMusicGenre(phone, session, message) {
   };
 
   const genre = genreMap[selected];
-  if (!genre) return sendMusicCategoryMenu(phone);
+  if (!genre) return sendGenreRecommendation(phone, session.music_occasion);
 
-  await sessionSvc.updateSession(session.id, {
-    music_genre: genre,
-    state: 'MUSIC_PERSON_NAME',
-  });
+  await sessionSvc.updateSession(session.id, { music_genre: genre });
 
+  const occasion = session.music_occasion;
+
+  // Skip "who is this for" for worship and business
+  if (SKIP_RECIPIENT_OCCASIONS.has(occasion)) {
+    if (occasion === 'worship') {
+      await sessionSvc.updateSession(session.id, {
+        music_person_name: 'God',
+        state: 'MUSIC_VOCAL_GENDER',
+      });
+      return wa.sendText(
+        phone,
+        `🙏 Beautiful choice.\n\nWhat are you thanking God for, or what is this worship about?\n\n_e.g. "Healing from sickness", "New job after 2 years of praying", "Just His faithfulness"_`
+      );
+    }
+    if (occasion === 'business') {
+      await sessionSvc.updateSession(session.id, { state: 'MUSIC_BUSINESS_INFO' });
+      return wa.sendText(
+        phone,
+        `💼 Great choice!\n\nWhat is your *business name* and what do you sell or offer?\n\n_e.g. "Chioma's Kitchen — we sell authentic homemade jollof rice and small chops"_`
+      );
+    }
+  }
+
+  // All other occasions — ask who it's for naturally
+  await sessionSvc.updateSession(session.id, { state: 'MUSIC_PERSON_NAME' });
   return wa.sendText(
     phone,
-    `🎯 Great choice!\n\nWho is this song for?\n\nTell me their *name* and anything special about them.\n\n_e.g. "My sister Amaka, she just graduated from UNILAG after 5 years of hustle. She's from Anambra."_`
+    `🎯 Great choice!\n\nWho is this song for?\n\nTell me their *name* and anything special about them.\n\n_e.g. "My sister Amaka, she just graduated from UNILAG after 5 years of hustle"_`
   );
+}
+
+async function handleMusicBusinessInfo(phone, session, message) {
+  const text = message.text?.body?.trim();
+  if (!text || text.length < 3) return wa.sendText(phone, '⚠️ Please tell me your business name and what you sell.');
+
+  await sessionSvc.updateSession(session.id, {
+    music_person_name: text,
+    music_story: text,
+    state: 'MUSIC_VOCAL_GENDER',
+  });
+
+  return askVocalGender(phone, session.id);
 }
 
 async function handleMusicPersonName(phone, session, message) {
   const text = message.text?.body?.trim();
   if (!text || text.length < 2) return wa.sendText(phone, '⚠️ Please tell me who the song is for.');
 
-  await sessionSvc.updateSession(session.id, { music_person_name: text, state: 'MUSIC_LANGUAGE' });
+  await sessionSvc.updateSession(session.id, { music_person_name: text, state: 'MUSIC_VOCAL_GENDER' });
+  return askVocalGender(phone, session.id);
+}
 
-  // Gospel and worship genres — skip language selection, use appropriate language
-  const gospelGenres = ['gospel', 'deep_worship', 'gospel_chant', 'gospel_praise', 'christian_rap'];
+// For worship — captures the testimony/reason after the initial occasion question
+async function handleMusicWorshipStory(phone, session, message) {
+  const text = message.text?.body?.trim();
+  if (!text || text.length < 3) return wa.sendText(phone, '⚠️ Please share what this worship song is about.');
+
+  await sessionSvc.updateSession(session.id, { music_story: text, state: 'MUSIC_VOCAL_GENDER' });
+  return askVocalGender(phone, session.id);
+}
+
+async function askVocalGender(phone, sessionId) {
+  await sessionSvc.updateSession(sessionId, { state: 'MUSIC_VOCAL_GENDER' });
+  return wa.sendButtons(
+    phone,
+    `🎤 One more thing — should the singer be *male* or *female*?\n\n_This helps us pick the right voice for your song._`,
+    [
+      { id: 'VOCAL_MALE', title: '👨 Male Voice' },
+      { id: 'VOCAL_FEMALE', title: '👩 Female Voice' },
+    ]
+  );
+}
+
+async function handleMusicVocalGender(phone, session, message) {
+  const btnId = message.interactive?.button_reply?.id;
+  const gender = btnId === 'VOCAL_FEMALE' ? 'female' : btnId === 'VOCAL_MALE' ? 'male' : null;
+
+  if (!gender) {
+    return wa.sendButtons(phone, 'Please choose male or female voice:', [
+      { id: 'VOCAL_MALE', title: '👨 Male Voice' },
+      { id: 'VOCAL_FEMALE', title: '👩 Female Voice' },
+    ]);
+  }
+
+  await sessionSvc.updateSession(session.id, { music_vocal_gender: gender, state: 'MUSIC_LANGUAGE' });
+
   const genre = session.music_genre;
 
+  // Auto-language for culturally specific genres — skip the question
   if (genre === 'igbo_highlife' || genre === 'pidgin_igbo') {
     await sessionSvc.updateSession(session.id, { music_language: 'Nigerian Pidgin mixed with Igbo naturally' });
     return askMusicStory(phone, session.id);
   }
-
   if (genre === 'yoruba_juju') {
     await sessionSvc.updateSession(session.id, { music_language: 'Yoruba' });
     return askMusicStory(phone, session.id);
   }
-
   if (genre === 'hausa_pidgin') {
     await sessionSvc.updateSession(session.id, { music_language: 'Hausa mixed with Pidgin' });
     return askMusicStory(phone, session.id);
   }
-
   if (genre === 'slow_soul' || genre === 'eminem_rap') {
     await sessionSvc.updateSession(session.id, { music_language: 'English' });
     return askMusicStory(phone, session.id);
   }
 
-  // All other genres — let user choose language
   return wa.sendList(
     phone,
     '🗣️ Song Language',
@@ -1102,11 +1172,27 @@ async function handleMusicLanguage(phone, session, message) {
 }
 
 async function askMusicStory(phone, sessionId) {
-  await sessionSvc.updateSession(sessionId, { state: 'MUSIC_STORY' });
+  const freshSession = await sessionSvc.getSessionById(sessionId);
 
+  // Worship occasion already captured story in the occasion step — skip ahead
+  if (freshSession.music_occasion === 'worship' && freshSession.music_story) {
+    return offerLyricsChoice(phone, sessionId);
+  }
+
+  // Business occasion already captured story — skip ahead
+  if (freshSession.music_occasion === 'business' && freshSession.music_story) {
+    return offerLyricsChoice(phone, sessionId);
+  }
+
+  await sessionSvc.updateSession(sessionId, { state: 'MUSIC_STORY' });
+  return offerLyricsChoice(phone, sessionId);
+}
+
+async function offerLyricsChoice(phone, sessionId) {
+  await sessionSvc.updateSession(sessionId, { state: 'MUSIC_STORY' });
   await wa.sendButtons(
     phone,
-    `🎤 Almost there!\n\nDo you have *your own lyrics* already written, or should we write them for you?\n\n_If you have lyrics tap "My Own Lyrics" and paste them. Otherwise tap "Write For Me" and tell us the story._`,
+    `🎤 Almost there!\n\nDo you have *your own lyrics* already written, or should we write them for you?`,
     [
       { id: 'LYRICS_CUSTOM', title: '✏️ My Own Lyrics' },
       { id: 'LYRICS_AI', title: '🤖 Write For Me' },
@@ -1117,7 +1203,6 @@ async function askMusicStory(phone, sessionId) {
 async function handleMusicStory(phone, session, message) {
   const btnId = message.interactive?.button_reply?.id;
 
-  // User wants to write own lyrics
   if (btnId === 'LYRICS_CUSTOM') {
     await sessionSvc.updateSession(session.id, { state: 'MUSIC_LYRICS_EDIT', music_using_custom: true });
     return wa.sendText(
@@ -1126,18 +1211,23 @@ async function handleMusicStory(phone, session, message) {
     );
   }
 
-  // User wants AI to write — ask for story
   if (btnId === 'LYRICS_AI') {
+    const freshSession = await sessionSvc.getSessionById(session.id);
+
+    // If story already captured (worship/business), skip straight to generating
+    if (freshSession.music_story) {
+      return generateLyricsPreview(phone, session.id);
+    }
+
     await sessionSvc.updateSession(session.id, { state: 'MUSIC_STORY' });
     return wa.sendText(
       phone,
-      `🎤 Tell me the *story or message* for this song.\n\nThe more details you give, the more personal and powerful the song will be 🔥\n\n_e.g. "My friend Tunde just got his first job at GTBank after 2 years of hustling. He is from Ibadan. He almost gave up last year. Make something that hypes him up and mentions his struggle"_\n\nOr send a voice note 🎙️`
+      `🎤 Tell me the *story or message* for this song.\n\nThe more details you give, the more personal and powerful the song will be 🔥\n\n_e.g. "My friend Tunde just got his first job at GTBank after 2 years of hustling. He's from Ibadan. He almost gave up last year."_\n\nOr send a voice note 🎙️`
     );
   }
 
   let story = '';
 
-  // Voice note
   if (message.type === 'audio') {
     await wa.sendText(phone, '⏳ Got your voice note! Transcribing...');
     try {
@@ -1155,18 +1245,19 @@ async function handleMusicStory(phone, session, message) {
   }
 
   await sessionSvc.updateSession(session.id, { music_story: story });
+  return generateLyricsPreview(phone, session.id);
+}
 
-  // Generate lyrics preview
+async function generateLyricsPreview(phone, sessionId) {
   await wa.sendText(phone, '✍️ Writing your lyrics... hold on 🎵');
   try {
-    const freshSession = await sessionSvc.getSessionById(session.id);
+    const freshSession = await sessionSvc.getSessionById(sessionId);
     const musicData = await buildMusicPrompt(freshSession);
 
-    await sessionSvc.updateSession(session.id, {
+    await sessionSvc.updateSession(sessionId, {
       state: 'MUSIC_LYRICS_CONFIRM',
       music_generated_lyrics: musicData.lyrics,
       music_suno_prompt: musicData.tags,
-      music_suno_negative: musicData.negativeTags,
       music_title: musicData.title,
     });
 
@@ -1211,7 +1302,6 @@ async function handleLyricsConfirm(phone, session, message) {
       await sessionSvc.updateSession(session.id, {
         music_generated_lyrics: musicData.lyrics,
         music_suno_prompt: musicData.tags,
-        music_suno_negative: musicData.negativeTags,
         music_title: musicData.title,
       });
 
@@ -1236,7 +1326,7 @@ async function handleLyricsConfirm(phone, session, message) {
     await sessionSvc.updateSession(session.id, { state: 'MUSIC_LYRICS_EDIT' });
     return wa.sendText(
       phone,
-      '✏️ Send your edited lyrics now.\n\nYou can copy the lyrics above, change what you want, and send back.\n\nUse *[Verse]*, *[Chorus]*, *[Bridge]* tags.'
+      '✏️ Send your edited lyrics now.\n\nCopy the lyrics above, change what you want, and send back.\n\nUse *[Verse]*, *[Chorus]*, *[Bridge]* tags.'
     );
   }
 }
@@ -1331,34 +1421,29 @@ async function generateAndSendSong(phone, session) {
 
     let lyrics = freshSession.music_generated_lyrics || freshSession.music_custom_lyrics;
     let tags = freshSession.music_suno_prompt;
-    let negativeTags = freshSession.music_suno_negative;
     let title = freshSession.music_title;
 
-    // If somehow we don't have lyrics yet, build them now
     if (!lyrics || !tags) {
       await wa.sendText(phone, '✍️ Writing your lyrics...');
       const musicData = await buildMusicPrompt(freshSession);
       lyrics = musicData.lyrics;
       tags = musicData.tags;
-      negativeTags = musicData.negativeTags;
       title = musicData.title;
     }
 
     await wa.sendText(phone, '🎼 Recording your song... ⏳');
 
-    const result = await musicSvc.generateSong({ lyrics, tags, negativeTags, title });
+    const result = await musicSvc.generateSong({ lyrics, tags, title });
 
-    // Send the audio
-    await wa.sendAudio(phone, result.publicUrl);
-
-    // Send cover art if available — this is what was missing before
+    // Cover art first — reveal moment like a real release, then audio
     if (result.imageUrl) {
-      await wa.sendImage(phone, result.imageUrl, `🎵 ${result.title}`);
+      await wa.sendImage(phone, result.imageUrl, `🎵 *${result.title}*\n\nYour song don ready!`);
     }
+    await wa.sendAudio(phone, result.publicUrl);
 
     await wa.sendText(
       phone,
-      `🎵 *${result.title}*\n\nYour song don ready! 🔥\n\nSave am, share am on WhatsApp Status, send am to who it's for 💚\n\n_Made with NaijaMeme Studio 🎨🎵_`
+      `🎵 *${result.title}*\n\nSave am, share am on WhatsApp Status 💚\n\n_Made with NaijaMeme Studio 🎨🎵_`
     );
 
     await pool.query(
@@ -1366,13 +1451,27 @@ async function generateAndSendSong(phone, session) {
       [phone]
     );
 
+    await sessionSvc.updateSession(session.id, {
+      state: 'MUSIC_OFFER_FORWARD',
+      music_final_audio_url: result.publicUrl,
+      music_final_title: result.title,
+    });
+
     if (freshSession.mode === 'bundle') {
       await wa.sendText(phone, '🖼️ Now let\'s create your flyer! Which category fits best?');
       await sessionSvc.updateSession(session.id, { state: 'MENU' });
       return sendMenu(phone);
     }
 
-    return askForFeedback(phone, session.id);
+    // NEW — auto-forward offer
+    return wa.sendButtons(
+      phone,
+      `📤 Want to send this song directly to ${freshSession.music_person_name || 'someone'} right now?`,
+      [
+        { id: 'FORWARD_YES', title: '📤 Send To Them' },
+        { id: 'FORWARD_NO', title: '✅ No, Just Me' },
+      ]
+    );
 
   } catch (err) {
     console.error('Song generation error:', err.message);
@@ -1382,6 +1481,47 @@ async function generateAndSendSong(phone, session) {
     );
   }
 }
+
+async function handleMusicForwardDecision(phone, session, message) {
+  const btnId = message.interactive?.button_reply?.id;
+
+  if (btnId === 'FORWARD_NO') {
+    return askForFeedback(phone, session.id);
+  }
+
+  if (btnId === 'FORWARD_YES') {
+    await sessionSvc.updateSession(session.id, { state: 'MUSIC_FORWARD_NUMBER' });
+    return wa.sendText(
+      phone,
+      `📱 Send their WhatsApp number now.\n\n_Format: 234XXXXXXXXXX (with country code, no + or spaces)_`
+    );
+  }
+}
+
+async function handleMusicForwardNumber(phone, session, message) {
+  const rawNumber = message.text?.body?.trim().replace(/[^0-9]/g, '');
+
+  if (!rawNumber || rawNumber.length < 10 || rawNumber.length > 14) {
+    return wa.sendText(phone, '⚠️ That doesn\'t look like a valid number. Send it like: 2348012345678');
+  }
+
+  try {
+    await wa.sendAudio(rawNumber, session.music_final_audio_url);
+    await wa.sendText(
+      rawNumber,
+      `🎵 *${session.music_final_title}*\n\nSomeone made this song just for you on NaijaMeme Studio! 💚\n\nWant to create your own?\n\nMessage this number to start: wa.me/2347067877802`
+    );
+    await wa.sendText(phone, `✅ Sent! They should receive it now 🔥`);
+  } catch (err) {
+    console.error('Forward send error:', err.message);
+    await wa.sendText(phone, '⚠️ Could not send to that number. Double check it and try *menu* to restart, or save the song and send it yourself.');
+  }
+
+  await sessionSvc.updateSession(session.id, { state: 'DONE' });
+  return askForFeedback(phone, session.id);
+}
+
+
 
 // ══════════════════════════════════════════════════════
 // FEEDBACK

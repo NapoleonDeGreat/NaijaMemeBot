@@ -190,21 +190,18 @@ async function handleIncomingMessage(phone, message, messageId) {
     case 'AWAITING_VOICE': return handleVoiceInput(phone, session, message);
     case 'AWAITING_PAYMENT': return handlePaymentCheck(phone, session, message);
     case 'AWAITING_SHOUTOUT': return handleShoutoutDecision(phone, session, message);
-    // Music states
     case 'MUSIC_CATEGORY': return handleMusicCategory(phone, session, message);
-case 'MUSIC_GENRE': return handleMusicGenre(phone, session, message);
-case 'MUSIC_BUSINESS_INFO': return handleMusicBusinessInfo(phone, session, message);
-case 'MUSIC_PERSON_NAME': return handleMusicPersonName(phone, session, message);
-case 'MUSIC_VOCAL_GENDER': return handleMusicVocalGender(phone, session, message);
-case 'MUSIC_LANGUAGE': return handleMusicLanguage(phone, session, message);
-case 'MUSIC_STORY': return handleMusicStory(phone, session, message);
-case 'MUSIC_LYRICS_CONFIRM': return handleLyricsConfirm(phone, session, message);
-case 'MUSIC_LYRICS_EDIT': return handleLyricsEdit(phone, session, message);
-case 'MUSIC_AWAITING_PAYMENT': return handleMusicPaymentCheck(phone, session, message);
-case 'MUSIC_OFFER_FORWARD': return handleMusicForwardDecision(phone, session, message);
-case 'MUSIC_FORWARD_NUMBER': return handleMusicForwardNumber(phone, session, message);
-
-    // Shared
+    case 'MUSIC_GENRE': return handleMusicGenre(phone, session, message);
+    case 'MUSIC_BUSINESS_INFO': return handleMusicBusinessInfo(phone, session, message);
+    case 'MUSIC_PERSON_NAME': return handleMusicPersonName(phone, session, message);
+    case 'MUSIC_VOCAL_GENDER': return handleMusicVocalGender(phone, session, message);
+    case 'MUSIC_LANGUAGE': return handleMusicLanguage(phone, session, message);
+    case 'MUSIC_STORY': return handleMusicStory(phone, session, message);
+    case 'MUSIC_LYRICS_CONFIRM': return handleLyricsConfirm(phone, session, message);
+    case 'MUSIC_LYRICS_EDIT': return handleLyricsEdit(phone, session, message);
+    case 'MUSIC_AWAITING_PAYMENT': return handleMusicPaymentCheck(phone, session, message);
+    case 'MUSIC_OFFER_FORWARD': return handleMusicForwardDecision(phone, session, message);
+    case 'MUSIC_FORWARD_NUMBER': return handleMusicForwardNumber(phone, session, message);
     case 'AWAITING_FEEDBACK_RATING': return handleFeedbackRating(phone, session, message);
     case 'AWAITING_FEEDBACK_COMMENT': return handleFeedbackComment(phone, session, message);
     default: return sendMainMenu(phone);
@@ -257,7 +254,7 @@ async function handleMainMenuSelection(phone, session, message) {
 }
 
 // ══════════════════════════════════════════════════════
-// FLYER FLOW — unchanged
+// FLYER FLOW
 // ══════════════════════════════════════════════════════
 
 async function sendMenu(phone) {
@@ -843,21 +840,14 @@ async function handleShoutoutDecision(phone, session, message) {
   if (btnId === 'SHOUTOUT_YES') {
     await wa.sendText(phone, '🎤 Shoutout feature coming very soon! Watch this space 🔥');
     return askForFeedback(phone, session.id);
-} else if (btnId === 'SHOUTOUT_NO') {
+  } else if (btnId === 'SHOUTOUT_NO') {
     await wa.sendText(phone, '🔥 Your flyer don ready! Save am and share!');
     return askForFeedback(phone, session.id);
   }
+}
 
-  // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 // MUSIC FLOW — OCCASION FIRST
-// Step 1: Occasion (plain language, what is this for)
-// Step 2: Genre (2-3 recommended options per occasion)
-// Step 3: Who is it for (skipped for worship/business)
-// Step 4: Vocal gender (mandatory — prevents Suno randomization)
-// Step 5: Language
-// Step 6: Story / lyrics choice
-// Step 7: Lyrics confirm
-// Step 8: Payment → Generate → Offer forward
 // ══════════════════════════════════════════════════════
 
 const SKIP_RECIPIENT_OCCASIONS = new Set(['worship', 'business']);
@@ -907,7 +897,6 @@ async function handleMusicCategory(phone, session, message) {
   return sendGenreRecommendation(phone, occasion);
 }
 
-// Each occasion recommends genres in PLAIN sound-language, not genre jargon
 async function sendGenreRecommendation(phone, occasion) {
   const recommendations = {
     birthday: {
@@ -1026,12 +1015,11 @@ async function handleMusicGenre(phone, session, message) {
 
   const occasion = session.music_occasion;
 
-  // Skip "who is this for" for worship and business
   if (SKIP_RECIPIENT_OCCASIONS.has(occasion)) {
     if (occasion === 'worship') {
       await sessionSvc.updateSession(session.id, {
         music_person_name: 'God',
-        state: 'MUSIC_VOCAL_GENDER',
+        state: 'MUSIC_PERSON_NAME',
       });
       return wa.sendText(
         phone,
@@ -1047,7 +1035,6 @@ async function handleMusicGenre(phone, session, message) {
     }
   }
 
-  // All other occasions — ask who it's for naturally
   await sessionSvc.updateSession(session.id, { state: 'MUSIC_PERSON_NAME' });
   return wa.sendText(
     phone,
@@ -1072,16 +1059,13 @@ async function handleMusicPersonName(phone, session, message) {
   const text = message.text?.body?.trim();
   if (!text || text.length < 2) return wa.sendText(phone, '⚠️ Please tell me who the song is for.');
 
+  // Worship occasion sends its testimony/reason through this same step
+  if (session.music_occasion === 'worship' && session.music_person_name === 'God') {
+    await sessionSvc.updateSession(session.id, { music_story: text, state: 'MUSIC_VOCAL_GENDER' });
+    return askVocalGender(phone, session.id);
+  }
+
   await sessionSvc.updateSession(session.id, { music_person_name: text, state: 'MUSIC_VOCAL_GENDER' });
-  return askVocalGender(phone, session.id);
-}
-
-// For worship — captures the testimony/reason after the initial occasion question
-async function handleMusicWorshipStory(phone, session, message) {
-  const text = message.text?.body?.trim();
-  if (!text || text.length < 3) return wa.sendText(phone, '⚠️ Please share what this worship song is about.');
-
-  await sessionSvc.updateSession(session.id, { music_story: text, state: 'MUSIC_VOCAL_GENDER' });
   return askVocalGender(phone, session.id);
 }
 
@@ -1112,7 +1096,6 @@ async function handleMusicVocalGender(phone, session, message) {
 
   const genre = session.music_genre;
 
-  // Auto-language for culturally specific genres — skip the question
   if (genre === 'igbo_highlife' || genre === 'pidgin_igbo') {
     await sessionSvc.updateSession(session.id, { music_language: 'Nigerian Pidgin mixed with Igbo naturally' });
     return askMusicStory(phone, session.id);
@@ -1174,12 +1157,9 @@ async function handleMusicLanguage(phone, session, message) {
 async function askMusicStory(phone, sessionId) {
   const freshSession = await sessionSvc.getSessionById(sessionId);
 
-  // Worship occasion already captured story in the occasion step — skip ahead
   if (freshSession.music_occasion === 'worship' && freshSession.music_story) {
     return offerLyricsChoice(phone, sessionId);
   }
-
-  // Business occasion already captured story — skip ahead
   if (freshSession.music_occasion === 'business' && freshSession.music_story) {
     return offerLyricsChoice(phone, sessionId);
   }
@@ -1214,7 +1194,6 @@ async function handleMusicStory(phone, session, message) {
   if (btnId === 'LYRICS_AI') {
     const freshSession = await sessionSvc.getSessionById(session.id);
 
-    // If story already captured (worship/business), skip straight to generating
     if (freshSession.music_story) {
       return generateLyricsPreview(phone, session.id);
     }
@@ -1435,7 +1414,6 @@ async function generateAndSendSong(phone, session) {
 
     const result = await musicSvc.generateSong({ lyrics, tags, title });
 
-    // Cover art first — reveal moment like a real release, then audio
     if (result.imageUrl) {
       await wa.sendImage(phone, result.imageUrl, `🎵 *${result.title}*\n\nYour song don ready!`);
     }
@@ -1463,7 +1441,6 @@ async function generateAndSendSong(phone, session) {
       return sendMenu(phone);
     }
 
-    // NEW — auto-forward offer
     return wa.sendButtons(
       phone,
       `📤 Want to send this song directly to ${freshSession.music_person_name || 'someone'} right now?`,
@@ -1520,8 +1497,6 @@ async function handleMusicForwardNumber(phone, session, message) {
   await sessionSvc.updateSession(session.id, { state: 'DONE' });
   return askForFeedback(phone, session.id);
 }
-
-
 
 // ══════════════════════════════════════════════════════
 // FEEDBACK

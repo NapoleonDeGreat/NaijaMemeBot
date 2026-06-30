@@ -843,10 +843,10 @@ async function handleShoutoutDecision(phone, session, message) {
   if (btnId === 'SHOUTOUT_YES') {
     await wa.sendText(phone, '🎤 Shoutout feature coming very soon! Watch this space 🔥');
     return askForFeedback(phone, session.id);
-  } else if (btnId === 'SHOUTOUT_NO') {
+} else if (btnId === 'SHOUTOUT_NO') {
     await wa.sendText(phone, '🔥 Your flyer don ready! Save am and share!');
-    return askForFeedback(phone, t.title}*\n\nYour song don ready! 🔥\n\nSave am, share am on WhatsApp Status, send am to who it's for 💚\n\n_Made with NaijaMeme Studio 🎨🎵_`
-    );
+    return askForFeedback(phone, session.id);
+  }
 
   // ══════════════════════════════════════════════════════
 // MUSIC FLOW — OCCASION FIRST
